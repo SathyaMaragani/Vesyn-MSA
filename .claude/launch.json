@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "neochems-api",
+      "runtimeExecutable": "C:\\Users\\lucky\\.conda\\envs\\retrosynth\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "backend.api.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8436"
+      ],
+      "port": 8436
+    },
+    {
+      "name": "neochems-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 3100
+    }
+  ]
+}
