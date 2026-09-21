@@ -10,7 +10,26 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        ui: ["var(--nc-font-ui)"],
+        data: ["var(--nc-font-data)"],
+      },
       colors: {
+        nc: {
+          base: "rgb(var(--nc-base) / <alpha-value>)",
+          raised: "rgb(var(--nc-raised) / <alpha-value>)",
+          panel: "rgb(var(--nc-panel) / <alpha-value>)",
+          "panel-2": "rgb(var(--nc-panel-2) / <alpha-value>)",
+          line: "rgb(var(--nc-line) / <alpha-value>)",
+          "line-strong": "rgb(var(--nc-line-strong) / <alpha-value>)",
+          hi: "rgb(var(--nc-hi) / <alpha-value>)",
+          mid: "rgb(var(--nc-mid) / <alpha-value>)",
+          lo: "rgb(var(--nc-lo) / <alpha-value>)",
+          cyan: "rgb(var(--nc-cyan) / <alpha-value>)",
+          ok: "rgb(var(--nc-ok) / <alpha-value>)",
+          warn: "rgb(var(--nc-warn) / <alpha-value>)",
+          bad: "rgb(var(--nc-bad) / <alpha-value>)",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
