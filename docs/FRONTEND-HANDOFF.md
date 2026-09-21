@@ -1,212 +1,175 @@
-# Frontend handoff
+# NeoChems Frontend Handoff
 
-You are building the NeoChems lab UI. The backend is finished and tested; the
-UI shell exists but **is not connected to it**. This doc is what you need to
-close that gap.
+Written for the next developer picking up the frontend. It says what exists, how it is wired to the backend, how to run it, and what was and was not verified. The longer design notes (motion system, hero, lab, dashboard) are in [FRONTEND.md](FRONTEND.md); this file is the map.
 
----
+## Frontend completed
 
-## What NeoChems does
+A Next.js 14 (App Router) + React 18 + TypeScript + Tailwind frontend in `frontend/`, replacing the earlier single-page lab UI. Three.js is used directly (no React Three Fiber). It has four modes, each its own page, and all of them read the existing NeoChems API and event stream; nothing is mocked.
 
-You give it a molecule — a SMILES string or a name like `paracetamol` — and a
-team of seven agents plans a synthesis route for it, validates every step
-against real chemistry tools and published literature, critiques the routes, and
-ranks them. Or refuses to recommend any, which is a legitimate outcome.
+| Mode | Purpose |
+| --- | --- |
+| Entry (`/`) | The cinematic 3D molecular hero. |
+| Overview (`/dashboard`) | 2D "what is happening right now" page. Embeds no 3D facility. |
+| Facility (`/lab`) | The immersive 3D research facility. |
+| Detail (`/lab/*`) | Five analytical views over the same run. |
 
-Your job is to make that process watchable, and to make every number on screen
-traceable back to the tool call that produced it.
+The backend was **not** changed by this work.
 
----
+## Routes
 
-## Get it running
+| Route | What it does |
+| --- | --- |
+| `/` | The molecular hero ("THE SCAFFOLD"): one oversized molecule with the headline placed inside the scene, depth of field, scroll journey. **ENTER NEOCHEMS** leads to `/dashboard`. |
+| `/dashboard` | Scientific command dashboard: current research with a large molecule, the seven agents, the workflow including the replan branch, the live event feed, synthesis counts, a route preview, evidence, system health (with the backend's reasons and an INSPECT control), alerts, a 2D lab plan and quick actions. **ENTER LAB** wipes into `/lab`. Empty state: "NO ACTIVE RESEARCH RUN" with a start form. |
+| `/lab` | The 3D facility. The layout owns the 3D world and HUD and persists across `/lab/*`; the route itself renders nothing. |
+| `/lab/chemistry` | Molecular workspace: the target and route molecules drawn from the backend's SMILES. |
+| `/lab/routes` | Synthesis routes and their analysis. |
+| `/lab/evidence` | Evidence and provenance, keeping the backend's evidence level (direct / similar / AI-predicted / none). |
+| `/lab/intelligence` | Situation brief and decision summaries built only from event payloads. |
+| `/lab/audit` | Flight recorder: timeline scrubber, tool-call audit, and a Log view of every event. |
+| `/landing` | The previous static landing page, moved here from `/` so nothing was lost. Not part of the new journey. |
 
-You need three things up. Takes about ten minutes the first time.
+Journey: `/` -> `/dashboard` -> `/lab` -> `/lab/*`. The lab's tab bar has a Dashboard link back. The chosen project is kept in `sessionStorage` (`neochems.project`) so the dashboard and the lab agree on the current run.
 
-**1. Postgres** — shared with the sibling RamChems project, so the container may
-already exist:
+## Architecture
 
-```bash
-docker start ramchems_db        # if it exists
-docker compose up -d            # only if it does not
+```
+frontend/src/
+  app/(app)/            routes: /, /dashboard, /lab, /lab/*   (shared layout: fonts, styles, MotionRoot)
+  app/(marketing)/      /landing (old static page)
+  components/hero/      the entry: scene, loader, type-in-world, depth of field, scroll journey
+  components/dashboard/ the dashboard (2D, one component per section)
+  components/facility/  the 3D facility (zones, architecture, kit, camera, canvas)
+  components/lab/       lab frame, top bar, agent rail/inspector, flight recorder, molecule panel
+  components/{chemistry,routes,evidence,intelligence,audit}/   the /lab/* workspaces
+  components/world/     small three.js helpers shared by the lab and dashboard (molecule mesh, stage hook)
+  components/motion/    page-transition wipe, smooth scroll, cursor
+  lib/api/              REST client (never throws: ok | offline | error)
+  lib/ws/               WebSocket client with reconnect and resume
+  lib/events/           the event fold and everything derived from it (pure, tested)
+  lib/dashboard/        buildDashboard (pure model) and serviceStatuses
+  lib/chem/             SMILES parser and 2D layout
+  lib/store/            NeoProvider (data) and LabUI (lab UI state)
+  types/                TypeScript types for the API, events, runs, routes, evidence
+  styles/app.css        design tokens (nc-* colours, fonts) and shared keyframes
+frontend/tests/         Node built-in test runner, pure logic only
 ```
 
-**2. Backend** (Python 3.11, conda env `retrosynth` — see the [README](../README.md)):
+Design rules that hold across the app: a value the backend did not return reads **NOT REPORTED**; an unreachable API reads **API OFFLINE**; nothing is simulated. The palette (graphite, warm ivory, mineral green, sage, oxidized copper, amber) lives in `styles/app.css`; `nc-cyan` is the historical token name and is actually sage.
+
+## Backend integration
+
+The API base is `NEXT_PUBLIC_API_URL` (default `http://localhost:8436`); the WebSocket base is derived from it (`lib/api/config.ts`).
+
+**REST used** (all in `lib/api/`, plus the dashboard probes):
+
+| Endpoint | Used for |
+| --- | --- |
+| `GET /health` | API state |
+| `GET /api/projects`, `GET /api/projects/{id}`, `POST /api/projects` | project list, one project, starting a run |
+| `GET /api/runs/{id}` | run record and the evaluator's final package (routes, critique, report) |
+| `GET /api/events?run_id=&after=&limit=` | authoritative event reconcile |
+| `GET /api/agents`, `GET /api/tools`, `GET /api/graph` | agent roster and snapshot, tool list, workflow graph |
+| `GET /api/audit?run_id=`, `GET /api/audit/{call_id}` | tool-call audit |
+| `GET /retrosynthesis/health` | AiZynthFinder state (dashboard health) |
+| `GET /retrosynthesis/evidence/status` | evidence index state (dashboard health) |
+| `GET /molecules/stats` | chemical library state (dashboard health) |
+
+**Event stream:** `WS /ws/events?run_id=<id>&after=<seq>`. The server replays persisted events after `seq`, then tails live ones. The client reconnects and resumes slightly before the highest `seq` it saw, because `seq` is assigned at insert and concurrent agents can deliver out of order.
+
+**Event-driven UI:** `lib/events/fold.ts` is the only place events become state. It is pure and idempotent, so duplicates and reordering converge to the same run view. The WebSocket is not trusted alone: the REST `/api/events` reconcile runs every 3 s during a run and once at the end. From the folded run come the agent views, the workflow stages, the feed, the alerts, the route and evidence figures. `lib/dashboard/model.ts` derives the whole dashboard from that fold, the evaluator's package and the service probes.
+
+**Data facts worth knowing:**
+- There is no `VALIDATION_FAILED` event. A failed validation is `VALIDATION_COMPLETED` with assessment `REVIEW_REQUIRED`, followed by `REPLAN_STARTED`.
+- The validator routes to the replanner only when no route is usable, and only up to 3 attempts.
+- The backend reports no progress percentage. The dashboard shows "workflow stages that have reported completion" and says so.
+- Route trees exist only in the evaluator's final package, so the 3D route tree appears when the run finishes.
+
+## Important frontend files
+
+| File | Purpose |
+| --- | --- |
+| `src/lib/store/NeoProvider.tsx` | The data layer: health, socket, projects, current run (fold of events), agents, `launch`, `selectProject`; `useRunResult` returns the final package. Each of `/dashboard` and `/lab` mounts its own provider. |
+| `src/lib/events/fold.ts` | Events to run state. |
+| `src/lib/events/agentViews.ts`, `describe.ts`, `activity.ts` | Agent status, human-readable event text, workflow order. |
+| `src/lib/api/http.ts` | `request()`: never throws; returns ok / offline / error with the backend's message. |
+| `src/lib/ws/eventSocket.ts` | WebSocket client. |
+| `src/lib/dashboard/model.ts` | `buildDashboard`: pure model behind every dashboard section. |
+| `src/lib/dashboard/services.ts` | Maps endpoint answers to service rows (AiZynthFinder offline shows the backend's reason). |
+| `src/components/dashboard/Dashboard.tsx`, `DashboardFrame.tsx` | Dashboard layout; header, navigation and the ENTER LAB transition. |
+| `src/components/facility/FacilityCanvas.tsx`, `facilityWorld.ts`, `layout.ts`, `zone*.ts` | The 3D facility: scene, layout of the departments, and each department's build. |
+| `src/components/facility/facilityState.ts` | Agent and run state mapped to what the facility shows. |
+| `src/components/lab/LabFrame.tsx`, `LabTopBar.tsx`, `FlightRecorder.tsx` | Lab HUD, tab bar (includes Dashboard), recorder. |
+| `src/components/hero/Hero.tsx`, `ScaffoldScene.tsx`, `heroWorld.ts` | The entry page. |
+| `src/styles/app.css`, `tailwind.config.ts` | Tokens and shared animation. |
+| `tests/*.test.ts` | Unit tests for the fold, socket, dashboard model, facility layout, hero and more. |
+
+## How to run
+
+Backend (from the repository root; see the README for full setup: Postgres on 5434, `conda activate retrosynth`, `pip install langgraph`):
 
 ```bash
-conda activate retrosynth
 uvicorn backend.api.main:app --port 8436
 ```
 
-Takes ~8 s to start; it loads the retrosynthesis model once at startup.
-`GET /health` returns `{"status":"ok"}` when it is up.
-
-**3. Frontend:**
+Frontend (`frontend/`):
 
 ```bash
-npm install --prefix frontend
-npm run dev --prefix frontend   # http://localhost:3100
+npm install
+npm run dev          # http://localhost:3100
+npm run typecheck    # tsc --noEmit
+npm run lint         # next lint
+npm test             # node --test tests/**/*.test.ts
+npm run build        # production build
 ```
 
-⚠️ **Port 3100, not 3000.** On the machine this was built on, 3000 is inside a
-Windows excluded port range and cannot be bound. The backend's CORS allow-list
-names 3100 — if you move one, move both.
+Copy `frontend/.env.example` to `frontend/.env.local` only if the API is not at `http://localhost:8436` (set `NEXT_PUBLIC_API_URL`).
 
-No auth, no login. Two routes: `/` (landing) and `/lab` (your work).
+Do not run `npm run build` while `npm run dev` is running in the same folder: the two share `.next` and the dev server ends up serving unstyled pages. Stop dev first, build, then move `.next` aside before restarting dev.
 
-Check the backend independently of the UI:
+## Validation performed
 
-```bash
-curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' \
-     -d '{"target": "aspirin"}'
-curl localhost:8436/api/runs/<run id>
-```
+Run at handoff on Windows 11, Node with the repo's existing `node_modules`:
 
-Aspirin is the reliable demo target — it solves in about 3 seconds.
-
----
-
-## What state the UI is in
-
-The app was supplied with a second, unrelated product inside it (AllocFlow —
-conference paper matching) and a **fully simulated lab** that faked entire runs
-with `setTimeout`, including invented DOIs, yields and confidence scores. All of
-that has been deleted. What is left is real shell, honest placeholders, and no
-data.
-
-**Kept and working** — `src/components/lab/`:
-
-| File | What it is |
+| Check | Result |
 | --- | --- |
-| `LabShell.tsx` | Layout and view switching |
-| `AerialAgentOffice.tsx` | The three.js office; each agent is a desk |
-| `AgentGraphView.tsx` | The agent graph — now matches the real backend topology |
-| `LabChat.tsx` | Chat transcript and input |
-| `TaskQueueSidebar.tsx` | Task list |
-| `AgentProfileModal.tsx` | Per-agent detail panel |
-| `ChemistryWorkspace.tsx` | **Placeholder.** Renders an empty state. |
+| `npm run typecheck` | clean |
+| `npm test` | 166 tests, 166 pass, 0 fail |
+| `npm run lint` | 0 errors, 3 warnings (`no-css-tags` in `(marketing)/landing/page.tsx`; two `exhaustive-deps` in `ui/GlassSurface.tsx`; none in the new code) |
+| `npm run build` | passes; `/`, `/dashboard`, `/landing`, `/lab` and all five `/lab/*` routes are prerendered |
+| HTTP | all eight routes (`/`, `/dashboard`, `/lab`, `/lab/chemistry`, `/lab/routes`, `/lab/evidence`, `/lab/intelligence`, `/lab/audit`) return 200 on the dev server |
+| Browser journey | headed Edge at 1440x900: `/` -> ENTER NEOCHEMS -> `/dashboard` -> ENTER LAB -> `/lab` -> each of the five tabs -> Dashboard; every hop landed on the right path, a canvas was present, and there were no uncaught page errors |
 
-`src/lib/runtime/initialData.ts` is **presentation only** — symbol, colour, desk
-position and a static description per agent. Anything that changes during a run
-belongs to the event stream.
+During development (not re-run at handoff) the dashboard was also checked live against the backend through a real run (progress 33% -> 50% -> 100%, current agent moving between departments), and in the no-run and API-offline states using intercepted requests.
 
----
+**Not verified:**
+- Layouts other than 1440x900 (the target range is 1440x900 to 2560x1440).
+- The replan branch and the failed-run view on screen in a run that actually replans; they are covered only by the model unit tests and a scripted event sequence.
+- The Docker image build and `npm start` (the standalone server).
+- Anything on a phone or tablet: the app is laptop/desktop only by design.
+- 3D performance on machines other than the dev laptop (Intel HD 530: about 29-36 fps; the render scale adapts down on weak GPUs).
 
-## The one thing to build
+## Known issues
 
-Everything flows from one place: `sendMessage` in
-`src/lib/runtime/RuntimeContext.tsx`. It currently posts an honest "not wired
-yet" message. Replace it with:
+These are backend or environment state, shown honestly by the UI rather than hidden. The frontend was not changed to work around them.
 
-```
-POST /api/projects {target}         -> {project, run}
-WS   /ws/events?run_id=&after=0     -> replay, then live tail
-GET  /api/runs/{id}                 -> the final result package
-```
+- **QSAR solubility model missing.** `models/qsar/solubility/baseline.pkl` does not exist (needs `scripts/download_esol.py` then `python -m backend.qsar.train`).
+- **`GET /molecules/stats` returns 500** (observed at handoff). The dashboard shows the chemical library as UNAVAILABLE.
+- **`chembl.similarity` fails** in runs with "relation molecules does not exist"; it appears as a failed-tool alert and in the evidence numbers.
+- **Evidence index not configured** (`/retrosynthesis/evidence/status` reports `available: false`); the dashboard shows NOT CONFIGURED.
+- **AiZynthFinder** was unloaded earlier in development and reported as OFFLINE with the backend's reason ("AiZynthFinder is not loaded"). Its data is now downloaded locally and `/retrosynthesis/health` reported `model_loaded: true` at handoff. `data/external/` is gitignored, so each machine has to download it (`download_public_data data/external/aizynthfinder`).
+- **LLM prose.** The critic and report use `NEOCHEMS_LLM` (default local Ollama). Runs during development used `NEOCHEMS_LLM=none`.
+- **Unused earlier code.** `components/airlock/` and `components/ui/airlock-spaceship-hero.tsx` (with their tests) are an earlier entry sequence that no route imports. Safe to remove if nobody wants them.
+- **README is behind.** It still describes `/` as the landing page; `/` is now the hero and the old landing page is `/landing`.
+- **Structures are layouts, not conformers.** The backend returns SMILES only; the drawings ignore stereochemistry.
+- **No cancel.** The backend has no cancel endpoint, so the UI has none.
+- **Ports.** UI on 3100 (3000 is in a Windows excluded range on the dev machine); API on 8436.
 
-**Build it as a fold.** One pure reducer, `fold(state, event) -> state`, is the
-only place backend events become UI state. Everything the lab renders is derived
-from that state.
+## Handoff instructions
 
-```
-  events (sorted by seq) ──► fold ──► RuntimeState
-                                        │
-              ┌──────────────┬──────────┴───┬──────────────┐
-           Office          Graph          Chat         Chemistry
-```
-
-Why a fold, specifically:
-
-- **Reconnect is free.** Socket drops, you reconnect with the last `seq` you
-  saw, state converges. Nothing lost, nothing duplicated.
-- **Replay is free.** `?after=0` replays a finished run from the database. A
-  recorded real run can drive the UI identically to a live one — which is how
-  demos stay safe without faking anything.
-- **Fabrication becomes structurally impossible**, which is the point.
-
-The full event contract — every type and its `data` payload — is
-[docs/EVENTS.md](EVENTS.md). Read it before you start; it is 74 lines and it is
-the whole interface.
-
-Two things it is worth repeating here:
-
-- **Sort by `seq`.** Concurrent agents can deliver slightly out of order.
-- **Full outputs never ride on events.** Events carry summaries. Fetch detail
-  from `/api/audit/{call_id}` or `/api/runs/{id}`.
-
-### Agent ids
-
-The backend's node ids map to the UI roles like this. They are already correct
-in `initialData.ts`; do not invent new ones.
-
-| Backend `agent_id` | UI `AgentRole` |
-| --- | --- |
-| `planner` | `ORCHESTRATOR` |
-| `research` | `RESEARCH` |
-| `retro` | `RETROSYNTHESIS` |
-| `validator` | `VALIDATION` |
-| `replanner` | `REPLANNER` |
-| `critic` | `CRITIC` |
-| `evaluator` | `EVALUATOR` |
-
-`GET /api/graph` returns the real LangGraph nodes and edges — prefer driving
-`AgentGraphView` from it over the hand-laid list currently in that file.
-
----
-
-## The rule that matters most
-
-**Never render a value the backend did not return.**
-
-This is not a style preference. The entire product argument is that our results
-are traceable and our uncertainty is honest — competitors show confident numbers
-they cannot source. One invented DOI in a demo destroys that, and a chemist in
-the room will catch it.
-
-Concretely:
-
-- A missing field renders **"not reported"**. Not a dash that looks like zero,
-  not a plausible default, not a placeholder number.
-- Backend unreachable renders **"API OFFLINE"**. The UI shows nothing else.
-- Evidence keeps its level (`DIRECT` / `SIMILAR` / `AI-PREDICTED` /
-  `NO VERIFIED`) and its licence. A similar precedent is **never** labelled as
-  a direct one.
-- The evaluator may recommend nothing. That is a real state — render it as a
-  finding, not as an error or an empty screen.
-- Some signals degrade when an optional service is down (the forward-validation
-  model, the LLM). The backend says so in the critique — surface that rather
-  than hiding it.
-
-There are backend tests that assert the UI never mislabels evidence provenance.
-They are currently pointed at deleted files and will need re-pointing at your
-components — please do that rather than deleting them. They exist because this
-exact failure has happened before.
-
----
-
-## Things that will trip you up
-
-- **A run is not instant.** Aspirin ~3 s, but a hard target can widen its search
-  budget up to three times and take minutes. Show the real stage from
-  `TASK_*` and `TOOL_*` events, not a spinner.
-- **Name resolution hits PubChem live** and PubChem rate-limits. A name-based
-  run can fail at the first step through no fault of yours. SMILES input always
-  works; prefer it while developing.
-- **The landing page at `/` is prebuilt HTML**, not React — it is injected from
-  `src/app/landing_body.html` with assets in `public/_astro/`. Leave it alone
-  unless you are redesigning it.
-- **`GET /api/tools`** lists the real tool registry, including which agents may
-  call what. Use it rather than assuming.
-
----
-
-## Where to read more
-
-| | |
-| --- | --- |
-| [EVENTS.md](EVENTS.md) | The event contract. Your main reference. |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | How the agents and the tool gateway work. |
-| [product-plan.md](product-plan.md) | Where this is all going, and why. |
-| [README.md](../README.md) | Running the whole stack. |
-
-Questions about intent rather than mechanics: the design rationale for the fold
-is in `product-plan.md` under "Design: the event fold".
+1. Pull the branch: `git pull origin main` (or `git fetch origin` then check out the branch this was pushed to).
+2. Install: `cd frontend && npm install`.
+3. Start the backend: Postgres, then `uvicorn backend.api.main:app --port 8436` (see the README for the environment and optional services).
+4. Start the frontend: `npm run dev` in `frontend/`.
+5. Verify: open `/`, click ENTER NEOCHEMS, then ENTER LAB, and step through the five lab tabs; start a run from the dashboard and watch the workflow and feed update. Run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build`.
+6. Continue from the pushed commit. Good next steps: check the dashboard at 1600, 1920 and 2560 widths; exercise a run that replans and a run that fails; fix the backend items above, after which the corresponding health rows should turn green with no frontend change.
