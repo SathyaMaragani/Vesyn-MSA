@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * NEOchems laptop workspace - design tokens.
+ * "Cinematic scientific operating system": graphite, cool-white type, one
+ * restrained cyan accent. Colour carries meaning and nothing else:
+ *   cyan = in progress / selected     green = validated, completed
+ *   amber = scrutiny, warning         red = failed, refused
+ * Channels are space-separated RGB so Tailwind opacity modifiers work.
+ */
+:root {
+  --nc-base: 16 17 15; /* #10110F graphite */
+  --nc-raised: 25 27 24; /* #191B18 */
+  --nc-panel: 35 36 31; /* #23241F warm surface */
+  --nc-panel-2: 45 46 40;
+  --nc-line: 54 55 48;
+  --nc-line-strong: 84 84 73;
+  --nc-hi: 232 228 216; /* #E8E4D8 warm off-white */
+  --nc-mid: 169 167 156; /* #A9A79C */
+  --nc-lo: 122 120 110;
+  /* "cyan" is the historical token name: the accent for in-progress / selected, now mineral sage */
+  --nc-cyan: 143 175 154; /* #8FAF9A */
+  --nc-ok: 185 201 138; /* validated: pale lichen, warmer than the sage accent */
+  --nc-warn: 214 164 91; /* #D6A45B amber */
+  --nc-bad: 205 100 78; /* oxidised copper-red */
+  --nc-copper: 184 117 82; /* #B87552 */
+  --nc-stone: 201 193 168; /* #C9C1A8 */
+
+  --nc-font-ui: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+  --nc-font-data: "Cascadia Mono", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: rgb(var(--nc-base));
+  color: rgb(var(--nc-hi));
+  font-family: var(--nc-font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(var(--nc-cyan) / 0.3);
+}
+
+/* Instrument-style scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--nc-line-strong)) transparent;
+}
+
+@layer components {
+  .nc-label {
+    @apply font-data text-[10px] font-medium uppercase tracking-[0.14em] text-nc-lo;
+  }
+  .nc-panel {
+    @apply border border-nc-line bg-nc-panel/80;
+  }
+  .nc-focus {
+    @apply outline-none focus-visible:ring-1 focus-visible:ring-nc-cyan/70;
+  }
+}
+
+@keyframes nc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.nc-pulse {
+  animation: nc-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-pulse {
+    animation: none;
+  }
+}
+
+/* The lab fades in from the airlock's closing fade, so the hand-off reads as one shot. */
+@keyframes nc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.nc-fade-in {
+  animation: nc-fade-in 0.8s ease-out both;
+}
+
+/* CTA scan line: a thin cyan sweep down the control. */
+@keyframes nc-scan {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(58px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="nc-scan"] {
+    animation: none !important;
+  }
+}
+
+/* Site cursor: the system cursor is hidden only once the custom one is live, and stays over text fields. */
+html.nc-cursor-live,
+html.nc-cursor-live * {
+  cursor: none !important;
+}
+html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
+  cursor: text !important;
+}
+
+/* A workspace sheet opens as a downward reveal over the persistent lab world. */
+@keyframes nc-sheet-in {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0.35;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+.nc-sheet-in {
+  animation: nc-sheet-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nc-sheet-in {
+    animation: none;
+  }
+}
+
+[data-smooth-scroll] {
+  overscroll-behavior: contain;
+}
+
+@keyframes nc-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(300%);
+  }
+}
+
+/* ---- dashboard motion (subtle; all of it stands down under prefers-reduced-motion) ---- */
+@keyframes nc-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+.nc-flow {
+  animation: nc-flow 0.9s linear infinite;
+}
+@keyframes nc-node-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.nc-node-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nc-node-ring 1.8s ease-out infinite;
+}
+@keyframes nc-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    background-color: rgb(var(--nc-cyan) / 0.12);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    background-color: transparent;
+  }
+}
+.nc-enter {
+  animation: nc-enter 0.9s ease-out;
+}
+@keyframes nc-enter-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.nc-enter-bar {
+  animation: nc-enter-bar 0.9s cubic-bezier(0.65, 0, 0.25, 1) 0.3s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nc-flow,
+  .nc-node-ring,
+  .nc-enter,
+  .nc-enter-bar {
+    animation: none;
+  }
+}
