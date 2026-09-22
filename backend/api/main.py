@@ -1,10 +1,11 @@
 """Top-level FastAPI app.
 
-Run:  uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
+Run:  uvicorn backend.api.main:app --host 127.0.0.1 --port 8436   (or: .\start-vesyn.ps1)
 """
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -62,26 +63,27 @@ async def lifespan(app: FastAPI):
         if interrupted:
             logger.warning("marked %s interrupted run(s) as FAILED", interrupted)
     except Exception:
-        logger.exception("NeoChems agent store unavailable - is Postgres up on :5434?")
+        logger.exception("Vesyn agent store unavailable - is Postgres (vesyn_db) up on :5437?")
 
     yield
     await mas_graph.cancel_all()
     molsearch.close_pool()
 
 
-app = FastAPI(title="NeoChems", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Vesyn", version="0.2.0", lifespan=lifespan)
 # LOCAL DEV ONLY. This allows the Vite dev server to call the API from a
-# different origin. Before ANY non-local deployment: replace the wildcard method
-# and header lists with the specific ones used, drop any origin that is not the
-# real frontend, and put the whole thing behind an env var so production never
-# gets a localhost origin allow-listed. Credentials are off, so a stolen origin
-# cannot ride the user's cookies - keep it that way unless auth is added.
+# different origin. Any origin by default (local dev); a public deployment sets
+# VESYN_CORS_ORIGINS (comma-separated) and/or VESYN_CORS_ORIGIN_REGEX (e.g. the
+# project's *.vercel.app previews) - see start-vesyn.ps1. Only what the frontend
+# sends is allowed. Credentials are off, so a stolen origin cannot ride the user's
+# cookies - keep it that way unless auth is added.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in os.environ.get("VESYN_CORS_ORIGINS", "*").split(",") if o.strip()],
+    allow_origin_regex=os.environ.get("VESYN_CORS_ORIGIN_REGEX") or None,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(routes_retrosynthesis.router)

@@ -1,5 +1,5 @@
 {
-  "name": "neochems",
+  "name": "vesyn",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -8,12 +8,14 @@
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.ts\""
+    "test": "tsx --test tests/run.mts"
   },
   "dependencies": {
     "@types/three": "^0.185.4",
-    "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "ketcher-core": "3.18.0",
+    "ketcher-react": "3.18.0",
+    "ketcher-standalone": "3.18.0",
     "lucide-react": "^0.428.0",
     "next": "14.2.5",
     "react": "^18.3.1",
@@ -30,6 +32,7 @@
     "eslint-config-next": "^14.2.5",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
+    "tsx": "4.23.15",
     "typescript": "^5.5.4"
   }
 }

@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "neochems-api",
+      "name": "vesyn-api",
       "runtimeExecutable": "C:\\Users\\lucky\\.conda\\envs\\retrosynth\\python.exe",
       "runtimeArgs": [
         "-m",
@@ -16,7 +16,23 @@
       "port": 8436
     },
     {
-      "name": "neochems-frontend",
+      "name": "vesyn-t5",
+      "runtimeExecutable": "D:\\5Projects\\RS_MSA\\venv-t5\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "--app-dir",
+        "backend/forward_model_service",
+        "main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8435"
+      ],
+      "port": 8435
+    },
+    {
+      "name": "vesyn-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",

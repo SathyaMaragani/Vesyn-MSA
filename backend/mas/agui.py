@@ -1,4 +1,4 @@
-"""AG-UI adapter: NeoChems domain events -> AG-UI protocol events.
+"""AG-UI adapter: Vesyn domain events -> AG-UI protocol events.
 
 Any AG-UI client (CopilotKit, OpenBot-style UIs) can drive a run with
 POST /agui and render it: steps for agent tasks, tool calls for gateway calls,

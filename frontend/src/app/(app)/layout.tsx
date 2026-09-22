@@ -3,7 +3,7 @@ import { MotionRoot } from "@/components/motion/MotionRoot";
 import "@/styles/app.css";
 
 export const metadata: Metadata = {
-  title: "NEOchems — AI Scientific Workforce",
+  title: "Vesyn — AI Scientific Workforce",
   description: "A live multi-agent chemistry research facility: planning, validation and critique with every step auditable.",
 };
 

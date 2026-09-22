@@ -96,7 +96,7 @@ export function EnterPortal({ bus, onEnter, active }: { bus: HeroBus; onEnter: (
           onFocus={() => excite(1)}
           onBlur={() => excite(0)}
           tabIndex={active ? 0 : -1}
-          aria-label="Enter NEOchems"
+          aria-label="Enter Vesyn"
           data-cta
           data-transition="manual"
           className="group relative flex items-center gap-5 py-5 outline-none"
@@ -107,7 +107,7 @@ export function EnterPortal({ bus, onEnter, active }: { bus: HeroBus; onEnter: (
           <i className="absolute left-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-warn" />
           <i className="absolute right-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-warn" />
           <span className="font-data text-[9px] tracking-[0.3em] text-nc-lo transition-colors group-hover:text-nc-warn">ACCESS 01</span>
-          <span className="font-data text-[13px] tracking-[0.5em] text-nc-hi transition-[letter-spacing,color] duration-500 group-hover:tracking-[0.62em] group-hover:text-nc-warn">ENTER NEOCHEMS</span>
+          <span className="font-data text-[13px] tracking-[0.5em] text-nc-hi transition-[letter-spacing,color] duration-500 group-hover:tracking-[0.62em] group-hover:text-nc-warn">ENTER VESYN</span>
           <svg viewBox="0 0 28 10" className="h-2.5 w-7 text-nc-warn transition-transform duration-500 group-hover:translate-x-2" fill="none" aria-hidden>
             <path d="M0 5h26M21 1l5 4-5 4" stroke="currentColor" strokeWidth="1.2" />
           </svg>

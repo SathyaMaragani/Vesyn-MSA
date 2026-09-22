@@ -4,19 +4,25 @@ People type "glucose", not "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O". Without thi
 every name-shaped query fails as an unparseable SMILES, which reads as the search
 being broken rather than as the wrong input format.
 
-SMILES is tried first, locally. Only genuine names hit the network.
+SMILES is tried first, locally, then approved-drug names from the local ChEMBL
+file. Only other names hit the network (PubChem).
 """
 from __future__ import annotations
 
+import csv
 import json
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
+from functools import cache
+from pathlib import Path
 
 from backend.molrepr import service
 
 PUBCHEM = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{}/property/SMILES,Title/JSON"
+# Approved-drug names, offline. Written by scripts/download_chembl.py.
+CHEMBL_TSV = Path(__file__).resolve().parents[2] / "data/external/chembl/chembl_approved.tsv"
 TIMEOUT_SECONDS = 12
 
 # Names are stable, so one lookup per name per process is plenty.
@@ -32,6 +38,7 @@ class Resolution:
     query: str
     canonical_smiles: str
     #  "smiles"  - the input already was a structure
+    #  "chembl"  - an approved-drug name, found locally
     #  "pubchem" - looked up by name
     source: str
     matched_name: str | None = None
@@ -46,6 +53,7 @@ def _lookup_pubchem(name: str) -> Resolution:
         with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as response:
             payload = json.load(response)
     except urllib.error.HTTPError as err:
+        err.close()  # an HTTPError holds the open response; do not leak the socket
         if err.code == 404:
             raise ResolutionError(
                 f"{name!r} is not a valid SMILES and PubChem has no compound by that name"
@@ -70,6 +78,44 @@ def _lookup_pubchem(name: str) -> Resolution:
         source="pubchem",
         matched_name=entry.get("Title") or name,
     )
+
+
+@cache
+def _local_names() -> dict[str, tuple[str, str]]:
+    """pref_name (lowercase) -> (name, SMILES) for the local ChEMBL approved drugs; {} without the file."""
+    try:
+        with CHEMBL_TSV.open(encoding="utf-8", newline="") as fh:
+            return {
+                row["pref_name"].lower(): (row["pref_name"].title(), row["smiles"])
+                for row in csv.DictReader(fh, delimiter="\t")
+                if row.get("pref_name") and row.get("smiles")
+            }
+    except OSError:
+        return {}
+
+
+# International (INN/BAN) names whose ChEMBL preferred name is the US one.
+_ALIASES = {
+    "paracetamol": "acetaminophen", "salbutamol": "albuterol", "adrenaline": "epinephrine",
+    "noradrenaline": "norepinephrine", "lignocaine": "lidocaine", "glibenclamide": "glyburide",
+    "pethidine": "meperidine", "rifampicin": "rifampin", "frusemide": "furosemide",
+    "amoxycillin": "amoxicillin", "aciclovir": "acyclovir", "sulphasalazine": "sulfasalazine",
+    "thyroxine": "levothyroxine", "bendrofluazide": "bendroflumethiazide",
+    "colecalciferol": "cholecalciferol",
+}
+
+
+def _lookup_name(name: str) -> Resolution:
+    """A name -> structure: approved drugs locally (offline, instant), anything else via PubChem."""
+    key = name.strip().lower()
+    hit = _local_names().get(_ALIASES.get(key, key))
+    if hit:
+        try:
+            return Resolution(query=name, canonical_smiles=service.canonicalize(hit[1]),
+                              source="chembl", matched_name=hit[0])
+        except service.InvalidSmilesError:
+            pass
+    return _lookup_pubchem(name)
 
 
 def _extract_candidates(text: str) -> list[str]:
@@ -175,14 +221,14 @@ def resolve(query: str) -> Resolution:
                 _cache[text.lower()] = res
                 return res
 
-            # Try looking up candidate in PubChem
+            # Try looking the candidate up by name
             try:
-                cand_res = _lookup_pubchem(cand)
+                cand_res = _lookup_name(cand)
                 _cache[cand.lower()] = cand_res
                 res = Resolution(
                     query=text,
                     canonical_smiles=cand_res.canonical_smiles,
-                    source="pubchem",
+                    source=cand_res.source,
                     matched_name=cand_res.matched_name,
                 )
                 _cache[text.lower()] = res
@@ -191,6 +237,6 @@ def resolve(query: str) -> Resolution:
                 continue
 
     # 4. Fall back to whole query lookup
-    resolution = _lookup_pubchem(text)
+    resolution = _lookup_name(text)
     _cache[text.lower()] = resolution
     return resolution

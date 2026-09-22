@@ -1,6 +1,6 @@
 "use client";
 
-// THE SCIENTIFIC COMMAND DASHBOARD: "what is happening across NeoChems right now?"
+// THE SCIENTIFIC COMMAND DASHBOARD: "what is happening across Vesyn right now?"
 //
 // A 2D editorial page, deliberately not a grid of equal cards: one large section (the current research), one tall
 // one (the workflow), unboxed lists (events, agents), a warm specimen sheet (the route) and small instruments

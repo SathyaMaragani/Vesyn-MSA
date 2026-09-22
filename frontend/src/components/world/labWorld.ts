@@ -1,4 +1,4 @@
-// The NeoChems laboratory as a three.js scene graph. ONE world, two drivers:
+// The Vesyn laboratory as a three.js scene graph. ONE world, two drivers:
 //   - /lab       feeds it real state derived from backend events;
 //   - the airlock feeds it a scripted "power-up" (a cinematic, not backend state).
 // The world itself owns no data: everything it draws is a function of the

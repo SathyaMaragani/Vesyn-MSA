@@ -87,12 +87,13 @@ export function useThreeStage(options: StageOptions) {
     });
     observer.observe(container);
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer(); // THREE.Clock is deprecated as of r185
+    timer.connect(document); // a hidden tab does not come back with one enormous frame
     let raf = 0;
-    const tick = () => {
+    const tick = (now?: number) => {
       raf = requestAnimationFrame(tick);
-      const dt = clock.getDelta(); // also advances clock.elapsedTime
-      opts.current.frame(stage, clock.elapsedTime, dt);
+      timer.update(now);
+      opts.current.frame(stage, timer.getElapsed(), timer.getDelta());
       if (opts.current.render) opts.current.render(stage);
       else renderer.render(scene, camera);
     };
@@ -100,6 +101,7 @@ export function useThreeStage(options: StageOptions) {
 
     return () => {
       cancelAnimationFrame(raf);
+      timer.dispose();
       observer.disconnect();
       cleanupSetup?.();
       scene.traverse((obj) => {

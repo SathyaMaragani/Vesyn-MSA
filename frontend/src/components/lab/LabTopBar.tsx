@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Play } from "lucide-react";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
+import { DrawStructure } from "@/components/chemistry/DrawStructure";
 import { cx } from "@/components/ui/primitives";
 import { useNeo } from "@/lib/store/NeoProvider";
+import { PROMPT_PLACEHOLDER, useRunComposer } from "@/lib/store/useRunComposer";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -32,30 +34,16 @@ function Mark() {
 
 export function LabTopBar() {
   const pathname = usePathname();
-  const { health, projects, projectId, selectProject, launch, runId } = useNeo();
-  const [target, setTarget] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const offline = health !== "online";
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!target.trim() || busy || offline) return;
-    setBusy(true);
-    setError(null);
-    const result = await launch(target);
-    setBusy(false);
-    if (result.status === "ok") setTarget("");
-    else setError(result.message);
-  }
+  const { projects, projectId, selectProject, runId } = useNeo();
+  const { prompt, setPrompt, smiles, setSmiles, busy, error, offline, ready, submit } = useRunComposer();
 
   return (
     <header className="pointer-events-auto absolute inset-x-0 top-0 z-30 border-b border-nc-line bg-nc-base/80 backdrop-blur-md">
       <div className="flex h-11 items-center gap-4 px-3">
-        <Link href="/" className="nc-focus flex items-center gap-2" aria-label="NEOchems — back to the airlock">
+        <Link href="/" className="nc-focus flex items-center gap-2" aria-label="Vesyn — back to the airlock">
           <Mark />
           <span className="font-data text-[13px] font-semibold tracking-[0.2em]">
-            NEO<span className="text-nc-cyan">chems</span>
+            VE<span className="text-nc-cyan">syn</span>
           </span>
         </Link>
 
@@ -84,17 +72,18 @@ export function LabTopBar() {
 
         <form onSubmit={submit} className="flex min-w-0 flex-1 items-center gap-2">
           <input
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
             disabled={offline}
             spellCheck={false}
-            placeholder={offline ? "API offline" : "Launch a run — SMILES or compound name"}
-            aria-label="Target molecule"
+            placeholder={offline ? "API offline" : smiles ? "What to do with the drawn structure (default: retrosynthesis)" : PROMPT_PLACEHOLDER}
+            aria-label="Ask Vesyn: task and molecule"
             className="nc-focus h-7 min-w-0 flex-1 border border-nc-line-strong bg-nc-base px-2 font-data text-[12px] text-nc-hi placeholder:text-nc-lo disabled:opacity-50"
           />
+          <DrawStructure smiles={smiles} onChange={setSmiles} disabled={offline} height="h-7" />
           <button
             type="submit"
-            disabled={offline || busy || !target.trim()}
+            disabled={!ready}
             className="nc-focus flex h-7 items-center gap-1.5 border border-nc-cyan/60 px-3 font-data text-[11px] uppercase tracking-wider text-nc-cyan hover:bg-nc-cyan/10 disabled:cursor-not-allowed disabled:border-nc-line disabled:text-nc-lo disabled:hover:bg-transparent"
           >
             <Play className="h-3 w-3" aria-hidden />

@@ -1,6 +1,6 @@
 "use client";
 
-// The NEOchems hero: THE SCAFFOLD.
+// The Vesyn hero: THE SCAFFOLD.
 //
 // (Second pass: the headline is now IN the WebGL scene - see typeWorld.ts - depth-tested against the
 // molecule and blurred by a real depth-of-field pass; the camera ends INSIDE the structure.)
@@ -132,7 +132,7 @@ export function Hero() {
 
   return (
     <main ref={mainRef} className="fixed inset-0 overflow-hidden bg-nc-base text-nc-hi" data-hero data-cursor="idle" data-cursor-label="">
-      <h1 className="sr-only">NEOchems — AI scientific workforce. Chemistry, reasoned by machines.</h1>
+      <h1 className="sr-only">Vesyn — AI scientific workforce. Chemistry, reasoned by machines.</h1>
 
       <HeroBackdrop bus={bus} />
       <ScaffoldScene bus={bus} onFacts={setFacts} />

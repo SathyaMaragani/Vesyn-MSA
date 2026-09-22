@@ -1,4 +1,4 @@
-# NeoChems
+# Vesyn
 
 RamChems with a multi-agent layer on top: a LangGraph team (orchestrator,
 research, retrosynthesis, validation, critic, replanner, evaluator) that plans,
@@ -12,14 +12,20 @@ Where this is going: [docs/product-plan.md](docs/product-plan.md).
 > **[docs/FRONTEND-HANDOFF.md](docs/FRONTEND-HANDOFF.md)**. The backend is done
 > and tested; the UI shell exists but is not yet connected to it.
 
-## NeoChems agent layer
+## Vesyn agent layer
 
-Runs **beside** RamChems on its own ports (API 8436, UI 3100), sharing its
-Postgres (5434) and model data (`data/external` is a junction to
-`D:\5Projects\RamChems\data\external`).
+Standalone: its own ports (API 8436, UI 3100, ReactionT5 8435), its own Postgres
+(`vesyn_db` on 5437, volume `vesyn_pgdata`), its own model data (`data/external`,
+gitignored) and its own ReactionT5 venv (`venv-t5`, gitignored). RamChems can run
+beside it untouched.
+
+Ask in plain words - "plan a synthesis of aspirin", "solubility of ibuprofen",
+"drugs similar to caffeine" - or draw the structure in the editor. The
+Orchestrator works out the task (retrosynthesis, properties, solubility,
+analogues or a full profile) and the molecule, and runs only the agents needed.
 
 ```bash
-docker compose up -d                                   # Postgres (skip if ramchems_db already runs)
+docker compose up -d                                   # Postgres: vesyn_db on :5437
 conda activate retrosynth
 pip install langgraph                                  # the only new backend dependency
 uvicorn backend.api.main:app --port 8436               # API + agents; creates the mas.* schema itself
@@ -28,28 +34,48 @@ uvicorn backend.api.main:app --port 8436               # API + agents; creates t
 Optional, each degrades gracefully when absent:
 
 ```bash
-# ReactionT5 forward validation (port 8435) - RamChems' venv-t5
-cd backend/forward_model_service && D:\5Projects\RamChems\venv-t5\Scripts\python -m uvicorn main:app --port 8435
-# LLM prose for the critic and the report - default is local Ollama
-ollama pull qwen3:14b          # or NEOCHEMS_LLM=anthropic:claude-sonnet-5 / openai:<model> / none
+# ReactionT5 forward validation (port 8435). One-off setup, Python 3.10 + CPU torch:
+#   py -3.10 -m venv venv-t5 && venv-t5\Scripts\pip install -r backend/forward_model_service/requirements.txt
+venv-t5\Scripts\python -m uvicorn --app-dir backend/forward_model_service main:app --port 8435
+# LLM: reads free-text prompts, writes the critic's notes and the report - default is local Ollama
+ollama pull qwen3:14b          # or VESYN_LLM=anthropic:claude-sonnet-5 / openai:<model> / none
 ```
 
 UI (Next.js): `npm install --prefix frontend && npm run dev --prefix frontend` → <http://localhost:3100>
-(landing) and <http://localhost:3100/lab> (the lab).
+(entry), <http://localhost:3100/dashboard> and <http://localhost:3100/lab> (the lab).
 Or skip the UI:
 
 ```bash
-curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' -d '{"target": "paracetamol"}'
+curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' -d '{"prompt": "plan a synthesis of paracetamol"}'
+curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' -d '{"prompt": "solubility of this", "smiles": "CCO"}'
 curl localhost:8436/api/runs/<run id>                  # result: ranked routes, critique, report
 ```
 
 Tests: `pytest tests/test_mas.py` (20 tests; the end-to-end ones run the real
 team on aspirin).
 
+### Deploy for review (free, no card)
+
+Website on **Vercel Hobby**; backend on this laptop, published over HTTPS by
+**Tailscale Funnel** (stable `https://<machine>.<tailnet>.ts.net`, WebSockets included).
+
+1. Install [Tailscale for Windows](https://tailscale.com/download/windows) and sign in.
+2. `.\start-vesyn.ps1` - starts the database, Ollama, ReactionT5 and the API, then the
+   Funnel. The first time, follow the link it prints to enable HTTPS/Funnel. It ends by
+   printing the public API URL.
+3. Vercel -> import the repo, root directory `frontend`, environment variable
+   `NEXT_PUBLIC_API_URL=<that URL>`, deploy.
+4. The API only accepts browser calls from `http://localhost:3100` and a Vercel project
+   named `vesyn*` (plus its preview URLs). Otherwise:
+   `.\start-vesyn.ps1 -Origins "http://localhost:3100,https://<your-app>.vercel.app"`.
+
+`.\stop-vesyn.ps1` stops it (data kept). While the laptop is off the site still loads
+and says **API OFFLINE**. Keep the laptop plugged in with sleep off during reviews.
+
 ---
 
 *The rest of this README is RamChems' own and still applies; where it says
-port 8434 / 5173, NeoChems uses 8436 / 3100.*
+port 8434 / 5173 / 5434, Vesyn uses 8436 / 3100 / 5437.*
 
 A local drug discovery platform. Three backend modules and a frontend for testing them.
 

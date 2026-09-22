@@ -71,7 +71,7 @@ SUBSTRATE_WEIGHT = 0.70
 PREFILTER_THRESHOLD = 0.4
 PREFILTER_LIMIT = 1000
 
-logger = logging.getLogger("ramchems.conditions.ord")
+logger = logging.getLogger("vesyn.conditions.ord")
 
 
 class OrdProvider(LiteratureProvider):

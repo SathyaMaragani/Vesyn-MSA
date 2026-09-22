@@ -1,4 +1,4 @@
-// The NeoChems research facility as a plan: where each department stands, how it faces, and
+// The Vesyn research facility as a plan: where each department stands, how it faces, and
 // the camera poses that frame it. Pure data and functions (no three.js), tested in tests/facility.test.ts.
 //
 // The plan, north at the top (the lab is entered from the south, +z):

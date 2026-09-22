@@ -11,6 +11,7 @@ import { shownRoute } from "../../components/facility/facilityState.ts";
 import { ZONES } from "../../components/facility/layout.ts";
 import type { KnownAgentId } from "../../types/agents.ts";
 import type { NeoEvent } from "../../types/events.ts";
+import { missedRoute } from "../../types/events.ts";
 import type { EvidenceSummary } from "../../types/evidence.ts";
 import type { RouteNode } from "../../types/routes.ts";
 import type { Project, RunResult } from "../../types/runs.ts";
@@ -243,7 +244,12 @@ export function buildDashboard(input: {
   const latest = latestRoutes(run);
   const flagged = latest.filter((r) => r.validation?.assessment === "REVIEW_REQUIRED");
   const byId = new Map(agents.map((a) => [a.id, a]));
+  // Anything but retrosynthesis is a short run: the Orchestrator, the Research Agent and the Evaluator.
+  const shortRun = run.task !== null && run.task !== "retrosynthesis";
   const stages: Stage[] = WORKFLOW_ORDER.map((id) => {
+    if (shortRun && id !== "planner" && id !== "research" && id !== "evaluator") {
+      return { id, label: AGENT_LABEL(id), state: "skipped", detail: `not needed for ${run.task}` };
+    }
     const s = stageOf(byId.get(id), run, id, id === "validator" && flagged.length > 0);
     let state = s.state;
     let detail = s.detail;
@@ -257,7 +263,7 @@ export function buildDashboard(input: {
   // a finished run has finished every stage that was needed
   if (run.phase === "completed") for (const s of stages) if (s.state === "pending" && s.id !== "replanner") s.state = "done";
 
-  const counted = stages.filter((s) => s.id !== "replanner" || run.replans.length > 0 || run.replanActive);
+  const counted = stages.filter((s) => s.state !== "skipped" && (s.id !== "replanner" || run.replans.length > 0 || run.replanActive));
   const doneN = counted.filter((s) => s.state === "done" || s.state === "warning").length;
   const progress = { done: doneN, total: counted.length, pct: hasEvents ? (run.phase === "completed" ? 100 : Math.round((doneN / counted.length) * 100)) : null };
 
@@ -349,7 +355,7 @@ export function buildDashboard(input: {
   if (evidence.summary && (evidence.summary.steps_with_experimental_evidence === 0 || evidence.summary.steps_without_evidence > 0)) {
     alerts.push({ key: "evidence", tone: "warn", title: "EVIDENCE INCOMPLETE", detail: `${evidence.summary.steps_with_experimental_evidence} of ${evidence.summary.steps} steps have direct experimental precedent`, href: "/lab/evidence" });
   }
-  if (result && result.recommended_route_id === null) alerts.push({ key: "norec", tone: "warn", title: "NO ROUTE RECOMMENDED", detail: result.recommendation, href: "/lab/routes" });
+  if (result && missedRoute(result)) alerts.push({ key: "norec", tone: "warn", title: "NO ROUTE RECOMMENDED", detail: result.recommendation, href: "/lab/routes" });
   for (const s of services) if (isProblem(s) && s.id !== "evidence") alerts.push({ key: `svc-${s.id}`, tone: s.state === "warn" ? "warn" : "bad", title: "SERVICE UNAVAILABLE", detail: `${s.label}${s.detail ? ` — ${s.detail}` : ""}`, href: null });
 
   return {

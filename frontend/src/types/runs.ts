@@ -1,6 +1,6 @@
 // Projects, runs and the final evidence package.
 // Source: backend/api/routes_mas.py, backend/mas/graph.py, db/init/04_mas.sql.
-import type { SearchBudget } from "./events";
+import type { SearchBudget, Task } from "./events";
 import type { TargetProfile, TargetResolution } from "./chemistry";
 import type { RankedRoute } from "./routes";
 
@@ -40,6 +40,8 @@ export interface RunResult {
   report: string;
   /** "template" or "llm:<provider>:<model>". */
   report_source: string;
+  /** Absent on runs from before prompts, which were all retrosynthesis. */
+  task?: Task;
   critic_notes: string | null;
   ranked_routes: RankedRoute[];
   limitations: string[];
@@ -76,7 +78,10 @@ export interface Project {
 
 /** POST /api/projects body. */
 export interface ProjectCreate {
-  target: string;
+  /** Plain words ("solubility of aspirin") or just a SMILES / name. */
+  prompt?: string;
+  /** A structure drawn in the editor; wins over any molecule named in the prompt. */
+  smiles?: string;
   name?: string;
   goal?: string;
   top_n?: number;

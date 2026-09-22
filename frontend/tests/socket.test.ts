@@ -43,7 +43,7 @@ function harness(lastSeq: () => number) {
 
 describe("EventSocket", () => {
   it("builds the documented URL", () => {
-    assert.equal(eventsUrl("ws://h:8436", "run_x", 0), "ws://h:8436/ws/events?run_id=run_x&after=0");
+    assert.equal(eventsUrl("ws://h:8436", "run_x", 0), "ws://h:8436/ws/events/run_x/0");
   });
 
   it("resumes a safe margin before the last seq, never below zero", () => {
@@ -79,7 +79,7 @@ describe("EventSocket", () => {
     assert.equal(h.statuses.at(-1), "reconnecting");
     t.mock.timers.tick(2000);
     assert.equal(FakeSocket.instances.length, 2);
-    assert.match(FakeSocket.instances[1].url, /after=700$/);
+    assert.match(FakeSocket.instances[1].url, /\/r\/700$/);
     FakeSocket.instances[1].onopen?.();
     assert.equal(h.statuses.at(-1), "live");
     h.socket.close();

@@ -23,7 +23,7 @@ DEFAULT_CONFIG = ROOT / "config.yml"
 DEFAULT_ITERATION_LIMIT = 100
 MAX_ITERATION_LIMIT = 500
 
-logger = logging.getLogger("ramchems.retrosynthesis")
+logger = logging.getLogger("vesyn.retrosynthesis")
 
 
 class InvalidRequestError(ValueError):
@@ -327,7 +327,7 @@ class RetrosynthesisService:
     def plan_routes(
         self,
         smiles: str,
-        top_n: int = 5,
+        top_n: int = 10,
         iteration_limit: int = DEFAULT_ITERATION_LIMIT,
         include_images: bool = False,
         include_conditions: bool = False,

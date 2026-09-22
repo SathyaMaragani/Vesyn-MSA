@@ -3,6 +3,7 @@
 // invented: where the events carry no evidence or uncertainty text the field is
 // null and the UI says "not reported".
 import type { NeoEvent } from "../../types/events.ts";
+import { missedRoute } from "../../types/events.ts";
 import type { Tone } from "./activity.ts";
 import type { RunView, ToolCallView } from "./fold.ts";
 
@@ -78,8 +79,8 @@ function fromEvent(ev: NeoEvent, limitations: readonly string[] | null): Decisio
       return {
         seq: ev.seq,
         agentId: ev.agent_id,
-        title: ev.data.recommended_route_id === null ? "No route recommended" : "Route recommended",
-        tone: ev.data.recommended_route_id === null ? "warn" : "ok",
+        title: missedRoute(ev.data) ? "No route recommended" : ev.data.recommended_route_id === null ? "Answer ready" : "Route recommended",
+        tone: missedRoute(ev.data) ? "warn" : "ok",
         trigger: `${ev.data.routes} route(s) ranked.`,
         action: ev.data.recommendation,
         evidence: null,

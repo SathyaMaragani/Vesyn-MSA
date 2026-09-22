@@ -1,4 +1,4 @@
-"""The NeoChems workforce. Each agent is one LangGraph node (wired in graph.py).
+"""The Vesyn workforce. Each agent is one LangGraph node (wired in graph.py).
 
 Agents decide *what to do next*; tools decide *what is chemically true*. No
 agent judges validity itself: RDKit, ReactionT5 and the literature index do,
@@ -14,7 +14,7 @@ import json
 from collections import Counter
 from contextlib import asynccontextmanager
 
-from backend.mas import events, gateway, llm, store
+from backend.mas import events, gateway, intent, llm, store
 from backend.mas.tools import iter_steps, leaves
 from backend.retrosynthesis.route_assessment import aggregate_route_assessment
 from backend.retrosynthesis.service import MAX_ITERATION_LIMIT, _enrich_with_assessment
@@ -23,7 +23,7 @@ MAX_ATTEMPTS = 3
 
 # id -> (name, role, station). `station` is where the 3D office seats them.
 ROSTER = {
-    "planner": ("Orchestrator", "Resolves the target, plans the run, assigns tasks", "command_desk"),
+    "planner": ("Orchestrator", "Reads the request, resolves the molecule, plans the run", "command_desk"),
     "research": ("Research Agent", "Profiles the target: descriptors, solubility, known analogues", "library"),
     "retro": ("Retrosynthesis Agent", "Searches routes to purchasable precursors with AiZynthFinder", "chemistry_workstation"),
     "validator": ("Validation Agent", "Checks every step with RDKit, ReactionT5 and literature precedent", "validation_station"),
@@ -58,6 +58,24 @@ PLAN = [
     ("report", "evaluator", "Generate final report"),
 ]
 RETRY_KEYS = ("retro", "validate", "stock")
+
+# Every other task is a short run: the Research Agent computes, the Evaluator answers.
+_RESEARCH_TITLES = {
+    "profile": "Profile target", "properties": "Compute descriptors",
+    "solubility": "Predict solubility", "analogues": "Find similar approved drugs",
+}
+PLANS = {"retrosynthesis": PLAN} | {
+    task: [("research", "research", title), ("report", "evaluator", "Answer the request")]
+    for task, title in _RESEARCH_TITLES.items()
+}
+# Which profile items each task needs. Descriptors are cheap and name the molecule.
+RESEARCH_ITEMS = {
+    "retrosynthesis": ("properties", "solubility", "analogues"),
+    "profile": ("properties", "solubility", "analogues"),
+    "properties": ("properties",),
+    "solubility": ("properties", "solubility"),
+    "analogues": ("properties", "analogues"),
+}
 
 
 # --- runtime plumbing ----------------------------------------------------
@@ -309,25 +327,39 @@ async def planner(state: dict) -> dict:
     run_id = state["run_id"]
     task_id = await create_task(run_id, "planner", "Plan the run")
     async with working("planner", run_id, task_id, "PLANNING") as me:
+        ask = await me.tool(
+            "prompt.interpret", {"prompt": state["query"], "smiles": state.get("smiles")},
+            "Work out what is being asked, and about which molecule",
+        )
+        task = ask["task"]
+        if task not in PLANS:
+            raise ValueError("Vesyn cannot do that yet. It can do: " + "; ".join(
+                f"{name} ({what})" for name, what in intent.TASKS.items()) + ".")
+        if not ask["molecule"]:
+            raise ValueError("No molecule found in the request: name one, paste a SMILES, or draw it.")
         target = await me.tool(
-            "pubchem.resolve", {"query": state["query"]},
-            "Resolve the requested target to one canonical structure",
+            "pubchem.resolve", {"query": ask["molecule"]},
+            "Resolve the molecule to one canonical structure",
         )
         smiles = target["canonical_smiles"]
-        await me.publish("MOLECULE_RECEIVED", smiles=smiles, query=state["query"],
-                         name=target.get("matched_name"), source=target["source"])
+        await me.publish("MOLECULE_RECEIVED", smiles=smiles, query=ask["molecule"],
+                         name=target.get("matched_name"), source=target["source"],
+                         task=task, prompt=state["query"])
         await asyncio.to_thread(
             store.execute,
             "UPDATE mas.projects SET target_smiles = %s, updated_at = now() WHERE id = %s",
             smiles, state["project_id"],
         )
-        tasks = {key: await create_task(run_id, agent, title) for key, agent, title in PLAN}
+        tasks = {key: await create_task(run_id, agent, title) for key, agent, title in PLANS[task]}
         search = {"attempt": 1, "iteration_limit": state["iteration_limit"], "top_n": state["top_n"]}
-        await me.say("research", f"Profile {smiles}: descriptors, solubility, nearest approved drugs.")
-        await me.say("retro", f"Find routes to {smiles} from purchasable stock: "
-                              f"{search['iteration_limit']} MCTS iterations, top {search['top_n']}.")
-        me.output = {"target_smiles": smiles, "tasks_created": len(tasks)}
-    return {"target": target, "tasks": tasks, "search": search, "attempts": []}
+        if task == "retrosynthesis":
+            await me.say("research", f"Profile {smiles}: descriptors, solubility, nearest approved drugs.")
+            await me.say("retro", f"Find routes to {smiles} from purchasable stock: "
+                                  f"{search['iteration_limit']} MCTS iterations, top {search['top_n']}.")
+        else:
+            await me.say("research", f"{_RESEARCH_TITLES[task]} for {smiles}: {intent.TASKS[task]}.")
+        me.output = {"task": task, "target_smiles": smiles, "tasks_created": len(tasks)}
+    return {"task": task, "target": target, "tasks": tasks, "search": search, "attempts": []}
 
 
 async def research(state: dict) -> dict:
@@ -339,11 +371,14 @@ async def research(state: dict) -> dict:
             ("solubility", "qsar.solubility", "Predicted aqueous solubility of the target"),
             ("analogues", "chembl.similarity", "Closest approved drugs: known chemistry nearby"),
         ):
+            if key not in RESEARCH_ITEMS[state["task"]]:
+                continue
             try:
                 profile[key] = await me.tool(tool, {"smiles": smiles}, reason)
             except Exception as err:  # a missing profile item never blocks synthesis planning
                 profile[key] = {"error": str(err)}
-        await me.say("critic", _profile_note(profile))
+        await me.say("critic" if state["task"] == "retrosynthesis" else "evaluator",
+                     _profile_note(profile))
         me.output = {key: "error" not in value for key, value in profile.items()}
     return {"profile": profile}
 
@@ -517,7 +552,58 @@ async def critic(state: dict) -> dict:
     return {"critiques": critiques, "critic_notes": notes}
 
 
+ANSWER_SYSTEM = (
+    "You answer a chemist's question using only the tool results given: RDKit descriptors, a "
+    "QSAR solubility model with its prediction interval and applicability note, and ChEMBL "
+    "similarity hits. Answer the request directly in at most 100 words. Quote numbers exactly "
+    "as given, with units. For solubility, give the interval and say whether the molecule is "
+    "inside the model's familiar chemistry. No markdown, never invent values."
+)
+
+ANSWER_LIMITATIONS = [
+    "Descriptors are computed by RDKit from the structure, not measured.",
+    "Solubility is a QSAR prediction (ESOL-trained); read it with its interval and applicability note.",
+    "Similarity is Morgan-fingerprint Tanimoto against the local ChEMBL approved-drug set only.",
+    "Nothing here has been run in a lab.",
+]
+
+
+async def _answer(state: dict) -> dict:
+    """A non-retrosynthesis request: answer it from the Research Agent's profile."""
+    run_id, task, target = state["run_id"], state["task"], state["target"]
+    profile = state.get("profile") or {}
+    async with working("evaluator", run_id, state["tasks"]["report"]) as me:
+        answer = intent.direct_answer(task, target, profile)
+        facts = json.dumps({"request": state["query"], "task": task, "target": target,
+                            "results": profile, "plain_answer": answer}, indent=1)
+        written = await narrate(me, ANSWER_SYSTEM, facts, "Explain the answer to the chemist")
+        final = {
+            "run_id": run_id,
+            "task": task,
+            "target": target,
+            "profile": profile,
+            # The route-shaped fields stay present (and empty) so every client reads one shape.
+            "verdict": {"passed": False, "usable_route_ids": [],
+                        "reason": "Retrosynthesis was not requested."},
+            "attempts": [],
+            "recommended_route_id": None,
+            "recommended_route_db_id": None,
+            "recommendation": answer,
+            "report": written["text"] if written else answer,
+            "report_source": f"llm:{written['provider']}:{written['model']}" if written else "template",
+            "critic_notes": None,
+            "ranked_routes": [],
+            "limitations": ANSWER_LIMITATIONS,
+            "audit": f"/api/audit?run_id={run_id}",
+        }
+        await me.say("planner", answer)
+        me.output = {"task": task}
+    return {"final": final}
+
+
 async def evaluator(state: dict) -> dict:
+    if state["task"] != "retrosynthesis":
+        return await _answer(state)
     run_id, verdict = state["run_id"], state["verdict"]
     by_id = {c["route_id"]: c for c in state["critiques"]}
 
@@ -566,6 +652,7 @@ async def evaluator(state: dict) -> dict:
         )
         final = {
             "run_id": run_id,
+            "task": "retrosynthesis",
             "target": state["target"],
             "profile": state.get("profile"),
             "verdict": verdict,

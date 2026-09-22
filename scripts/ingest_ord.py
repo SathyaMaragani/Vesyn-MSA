@@ -29,11 +29,11 @@ DATA_DIR = ROOT / "data/external/ord"
 HF_REPO = "open-reaction-database/ord-data"
 #: Pinned so a re-ingest fetches the same bytes rather than whatever is on main
 #: today. Verified 2026-09-11: every locally ingested parquet is byte-identical
-#: to this revision (sha256 == the HF LFS oid). Override with RAMCHEMS_ORD_REV
+#: to this revision (sha256 == the HF LFS oid). Override with VESYN_ORD_REV
 #: to move deliberately; the content-addressed dataset_version will change and
 #: retire the cached evidence derived from the old files.
 HF_REVISION = os.environ.get(
-    "RAMCHEMS_ORD_REV", "93475c46949f9218e1dfb6624096025135db2add"
+    "VESYN_ORD_REV", "93475c46949f9218e1dfb6624096025135db2add"
 )
 HF_TREE = (
     f"https://huggingface.co/api/datasets/{HF_REPO}/tree/{HF_REVISION}?recursive=true"
@@ -44,7 +44,7 @@ HF_FILE = f"https://huggingface.co/datasets/{HF_REPO}/resolve/{HF_REVISION}/"
 #: travel with the material.
 LICENSE = "CC-BY-SA-4.0"
 DSN = os.environ.get(
-    "RAMCHEMS_DSN", "postgresql://ramchems:ramchems@127.0.0.1:5434/ramchems"
+    "VESYN_DSN", "postgresql://vesyn:vesyn@127.0.0.1:5437/vesyn"
 )
 
 

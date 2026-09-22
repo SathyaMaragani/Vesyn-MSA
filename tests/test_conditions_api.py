@@ -408,13 +408,13 @@ def test_ui_never_claims_the_route_came_from_the_matched_source():
     A matched record is evidence found AFTER the route was proposed. The UI must
     say so wherever records are displayed.
     """
-    results = (FRONTEND / "workspaces/results.tsx").read_text(encoding="utf-8")
+    results = (FRONTEND / "components/evidence/EvidenceWorkspace.tsx").read_text(encoding="utf-8")
     assert "did not take this step from these records" in results
     assert "matched against it afterwards" in results
 
 
 def test_ui_distinguishes_direct_from_similar_in_the_label_itself():
-    results = (FRONTEND / "workspaces/results.tsx").read_text(encoding="utf-8")
+    results = (FRONTEND / "components/evidence/EvidenceWorkspace.tsx").read_text(encoding="utf-8")
     assert "DIRECT EXPERIMENTAL PRECEDENT" in results
     assert "SIMILAR EXPERIMENTAL PRECEDENT" in results
     assert "AI-PREDICTED CONDITIONS" in results

@@ -30,7 +30,7 @@ import type { Project, ProjectCreated, RunRecord } from "@/types/runs";
 const HEALTH_POLL_ONLINE_MS = 5000;
 const HEALTH_POLL_OFFLINE_MS = 2500;
 const EVENT_BATCH_MS = 40;
-const PROJECT_KEY = "neochems.project";
+const PROJECT_KEY = "vesyn.project";
 
 /** The chosen project survives moving between the dashboard and the lab (separate pages, one provider each). */
 const remember = (id: string) => {
@@ -80,9 +80,10 @@ export interface NeoContextValue {
   /** The persisted run (status, error, final evidence package). */
   runRecord: LoadState<RunRecord>;
   agents: AgentView[];
-  /** Frames the socket received that were not valid NeoChems events. */
+  /** Frames the socket received that were not valid Vesyn events. */
   rejectedFrames: number;
-  launch: (target: string) => Promise<ApiResult<ProjectCreated>>;
+  /** Start a run from a plain-words prompt and/or a drawn structure (which wins over any molecule the prompt names). */
+  launch: (prompt: string, smiles?: string) => Promise<ApiResult<ProjectCreated>>;
   selectProject: (projectId: string) => Promise<void>;
   refreshProjects: () => void;
 }
@@ -192,8 +193,8 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
   }, [projects, selectProject]);
 
   const launch = useCallback(
-    async (target: string) => {
-      const result = await createProject({ target: target.trim() });
+    async (prompt: string, smiles?: string) => {
+      const result = await createProject({ prompt: prompt.trim(), smiles: smiles?.trim() || undefined });
       if (result.status === "ok") {
         userChose.current = true;
         remember(result.data.project.id);

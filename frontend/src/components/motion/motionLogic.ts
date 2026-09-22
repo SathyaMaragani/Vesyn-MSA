@@ -21,9 +21,6 @@ export function sectionOf(pathname: string): string {
 
 export type NavKind = "none" | "soft" | "wipe" | "hard";
 
-/** Sections that live in another root layout: navigating there is a full document load. */
-const OTHER_ROOT = new Set(["landing"]);
-
 /**
  * Decide how a click on a link should navigate. "none" = let the browser / Next
  * handle it untouched (new tab, modifier keys, downloads, hash jumps, other origins).
@@ -48,7 +45,6 @@ export function classifyNavigation(
   if (url.pathname === from) return none; // same page (hash jump, query change)
   const next = url.pathname + url.search;
   if (sectionOf(url.pathname) === sectionOf(from)) return { kind: "soft", path: next };
-  if (OTHER_ROOT.has(sectionOf(url.pathname)) || OTHER_ROOT.has(sectionOf(from))) return { kind: "hard", path: next };
   return { kind: "wipe", path: next };
 }
 
@@ -56,7 +52,6 @@ export function classifyNavigation(
 export function destinationLabel(path: string): string {
   const s = sectionOf(path.split("?")[0]);
   if (s === "lab") return "LABORATORY";
-  if (s === "landing") return "ABOUT";
   return "AIRLOCK";
 }
 

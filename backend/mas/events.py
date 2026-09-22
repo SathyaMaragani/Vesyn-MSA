@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from backend.mas import store
 
-logger = logging.getLogger("neochems.events")
+logger = logging.getLogger("vesyn.events")
 
 #: Every type the backend emits. docs/EVENTS.md describes each payload.
 TYPES = frozenset({

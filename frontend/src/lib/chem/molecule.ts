@@ -35,7 +35,7 @@ export function getMolecule(smiles: string): MoleculeResult {
   return result;
 }
 
-/** Muted CPK-style colours in the NEOchems palette (stone, amber, copper): readable on a dark ground, no neon. */
+/** Muted CPK-style colours in the Vesyn palette (stone, amber, copper): readable on a dark ground, no neon. */
 export const ELEMENT_HEX: Record<string, number> = {
   C: 0xc9c1a8,
   N: 0xd6a45b,

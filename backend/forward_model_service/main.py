@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
-logger = logging.getLogger("ramchems.forward_service")
+logger = logging.getLogger("vesyn.forward_service")
 
 # Try to import torch and transformers, but mock if unavailable
 try:

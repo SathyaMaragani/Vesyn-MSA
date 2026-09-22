@@ -22,11 +22,10 @@ Port 3100, not 3000 (3000 is in a Windows excluded range on the dev machine). Th
 
 | Route | What | Talks to the backend? |
 | --- | --- | --- |
-| `/` | **The hero** (`components/hero/`): a full-screen, scroll-driven molecular world that ends on NEOCHEMS and **ENTER NEOCHEMS**, which leads to the dashboard. See below. | Only `GET /health`, for the status line |
-| `/dashboard` | **The scientific command dashboard** (`components/dashboard/`): a separate, 2D-first page that answers "what is happening across NeoChems right now?". See *The dashboard* below. It renders none of the lab. | Yes — REST + `WS /ws/events`, and a few health endpoints |
+| `/` | **The hero** (`components/hero/`): a full-screen, scroll-driven molecular world that ends on VESYN and **ENTER VESYN**, which leads to the dashboard. See below. | Only `GET /health`, for the status line |
+| `/dashboard` | **The scientific command dashboard** (`components/dashboard/`): a separate, 2D-first page that answers "what is happening across Vesyn right now?". See *The dashboard* below. It renders none of the lab. | Yes — REST + `WS /ws/events`, and a few health endpoints |
 | `/lab` | **The live lab: the research facility.** One persistent 3D world (`components/facility/`) with a secondary overlay HUD. See *The lab* below. | Yes — REST + `WS /ws/events`. |
 | `/lab/chemistry` `/routes` `/evidence` `/intelligence` `/audit` | Workspaces that open as sheets *over* the lab (the layout persists, so the 3D scene never remounts). | Yes |
-| `/landing` | The previous prebuilt marketing page, untouched. It loads third-party analytics (`d.browseros.com`). | No |
 
 `components/airlock/` (a 3D scroll-through airlock) and `components/ui/airlock-spaceship-hero.tsx` (a 21st.dev scroll-locked video hero, MIT, by Yura Oak) are built and tested but currently unused. Their scene graph is `components/world/labWorld.ts` (the old pedestal lab), which `/lab` no longer uses. `moleculeMesh.ts` and `useThreeStage.ts` in `components/world/` are shared with the facility.
 
@@ -40,8 +39,8 @@ One oversized molecule (the cholesterol constitution, `HERO_SMILES`; a layout of
 
 **Journey** (`journey.ts`, pure and tested): far view -> approach -> the camera crosses the headline -> it RIDES the molecule's longest bond path with large atoms passing the lens -> it arrives at the mouth of a ring and looks THROUGH it. The keys are searched, not hand-placed (a ring of candidate positions per point, clearance from every atom, most structure in view, then a relaxation pass); `tests/hero.test.ts` asserts on the real molecule that the camera never enters an atom and always has at least 3 atoms in view, from the first frame to the last. The camera rides in the molecule's own frame, so the molecule can drift and turn (a slow sway) while the camera stays on its rail.
 
-**Identity.** The molecular world reveals the name; it does not give way to a title card. Order (`brandAlpha` / `brandSolid` / `taglineOpacity` / `portalOpacity` in `journey.ts`, asserted in `tests/hero.test.ts`): the last atoms sweep past, *NEOchems* begins as an amber hairline outline (the same outline-to-solid language as the headline), resolves into ivory type, then the descriptor, then the way in.
-- **In the scene, off-centre.** The name is a plane 12 units ahead of the arrival camera, left of centre (`placeBrand`), depth-tested with a soft shadow plane behind it. The descriptor hangs under its left edge and the ACCESS 01 / ENTER NEOCHEMS marker sits lower and to its right (both follow `bus.brand`, the ink's projected position), so it reads as a diagonal, not a centred stack.
+**Identity.** The molecular world reveals the name; it does not give way to a title card. Order (`brandAlpha` / `brandSolid` / `taglineOpacity` / `portalOpacity` in `journey.ts`, asserted in `tests/hero.test.ts`): the last atoms sweep past, *Vesyn* begins as an amber hairline outline (the same outline-to-solid language as the headline), resolves into ivory type, then the descriptor, then the way in.
+- **In the scene, off-centre.** The name is a plane 12 units ahead of the arrival camera, left of centre (`placeBrand`), depth-tested with a soft shadow plane behind it. The descriptor hangs under its left edge and the ACCESS 01 / ENTER VESYN marker sits lower and to its right (both follow `bus.brand`, the ink's projected position), so it reads as a diagonal, not a centred stack.
 - **Nothing is replaced.** The six distant molecules from the opening drift to `ARRIVAL_SLOTS` behind and around the name, dim a little, and lose focus (the depth-of-field focus moves onto the name). Three foreground atoms sweep back in from beyond the frame and rest across its edges.
 - **Warmer arrival.** Key light and ambient warm toward amber, the mineral rim steps back, the shafts strengthen (`warmthAt`).
 - **Never dead.** From 80% the camera slowly orbits what it looks at and creeps (`settleK`); the field of view widens 4 degrees. Hovering the marker leans the camera forward before the click.
@@ -52,7 +51,7 @@ One oversized molecule (the cholesterol constitution, `HERO_SMILES`; a layout of
 
 **HUD** (`HeroFrame.tsx`): every row reads real state. NODE = `GET /health`; MOLECULE = the scene is running; ORIGIN = chapter 00-03; CAMERA = station along the rail; SCROLL = progress; during the STRUCTURE chapter WEIGHT / RINGS / HEAVY ATOMS from the SMILES. Nav: SYSTEM / LAB / ABOUT, top right.
 
-**Cursor**: a small crosshair when idle; INSPECT over an atom (with the atom's readout beside it), EXPLORE over technical markers, ENTER over the marker. **ENTER NEOCHEMS** is a hairline marker: as the pointer approaches, the structure draws taut; on hover the hairline fills with amber light; on click the camera moves forward, the field of view widens, and the wipe opens `/dashboard`.
+**Cursor**: a small crosshair when idle; INSPECT over an atom (with the atom's readout beside it), EXPLORE over technical markers, ENTER over the marker. **ENTER VESYN** is a hairline marker: as the pointer approaches, the structure draws taut; on hover the hairline fills with amber light; on click the camera moves forward, the field of view widens, and the wipe opens `/dashboard`.
 
 ```
 Hero
@@ -78,9 +77,9 @@ Dev-only profiling flags: `/?perf=noshadow,nodistant,nodof,msaa2,msaa4`.
 
 ## Motion system
 
-`components/motion/`, mounted once by `MotionRoot` in the `(app)` layout (the legacy `/landing` page has its own root layout and design and is left alone).
+`components/motion/`, mounted once by `MotionRoot` in the `(app)` layout.
 
-- **Page transitions** (`TransitionProvider`, `wipeShader.ts`): a noise-dissolve wipe in a fragment shader on a bare WebGL canvas, sweeping out from the clicked point. It is created lazily and costs nothing while idle. Every link click that crosses sections (`/` ↔ `/lab`) gets it; moves inside the lab (`/lab` ↔ `/lab/chemistry` …) are left to Next, since sheets slide over one persistent world. Links to `/landing` (another root layout) wipe and then do a real document load. Opt a link out with `data-transition="manual"`; code can call `useTransition().go(href, origin)`. If the destination never reports in, the wipe lifts itself after 4 s. No WebGL → a plain fade; reduced motion → no wipe.
+- **Page transitions** (`TransitionProvider`, `wipeShader.ts`): a noise-dissolve wipe in a fragment shader on a bare WebGL canvas, sweeping out from the clicked point. It is created lazily and costs nothing while idle. Every link click that crosses sections (`/` ↔ `/lab`) gets it; moves inside the lab (`/lab` ↔ `/lab/chemistry` …) are left to Next, since sheets slide over one persistent world. Opt a link out with `data-transition="manual"`; code can call `useTransition().go(href, origin)`. If the destination never reports in, the wipe lifts itself after 4 s. No WebGL → a plain fade; reduced motion → no wipe.
 - **Cursor** (`SiteCursor`): a dot plus a trailing ring that stretches with speed, swells over links, opens over `[data-cta]`, becomes a caret over text fields and tightens on press. Override per element with `data-cursor="link|cta|text|drag"` and `data-cursor-label`. Fine pointers only; the system cursor is hidden only after the first real mouse move.
 - **Inertial scroll** (`SmoothScroll`): opt in per container with `data-smooth-scroll` (the lab sheets have it). Never the window (the hero spends the wheel on its own progress), never with Ctrl, and nested scrollers keep the wheel until they hit an end.
 - All timing and navigation rules are pure and unit-tested in `motionLogic.ts` / `tests/motion.test.ts`.
@@ -105,7 +104,6 @@ GET /api/{projects,runs,agents,tools,graph,audit} ──► lib/api (never throw
 ```
 src/
   app/(app)/          root layout for / and /lab (dark design system)
-  app/(marketing)/    root layout for the legacy /landing (its own CSS)
   components/entry/ world/ lab/ chemistry/ routes/ evidence/ intelligence/ audit/ layout/ ui/  (airlock/ unused)
   lib/api/  lib/ws/  lib/events/  lib/chem/  lib/store/
   types/              agents events evidence routes chemistry runs audit api

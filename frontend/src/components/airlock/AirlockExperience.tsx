@@ -331,7 +331,7 @@ export function AirlockExperience() {
       {/* Frame 0 */}
       <div ref={title} className="pointer-events-none absolute inset-x-0 top-[26%] text-center">
         <h1 className="font-data text-6xl font-light tracking-[0.35em] text-nc-hi">
-          NEO<span className="text-nc-cyan">chems</span>
+          VE<span className="text-nc-cyan">syn</span>
         </h1>
         <p className="mt-4 font-data text-sm tracking-[0.5em] text-nc-mid">AI SCIENTIFIC WORKFORCE</p>
       </div>
@@ -386,7 +386,7 @@ export function AirlockExperience() {
 
       {/* Frame 5: ready */}
       <div ref={readyBlock} className="absolute inset-x-0 bottom-[12%] text-center" style={{ opacity: 0, pointerEvents: "none" }}>
-        <p className="font-data text-[11px] tracking-[0.5em] text-nc-mid">NEOCHEMS RESEARCH FACILITY</p>
+        <p className="font-data text-[11px] tracking-[0.5em] text-nc-mid">VESYN RESEARCH FACILITY</p>
         <p className="mt-2 font-data text-lg tracking-[0.3em] text-nc-hi">SCIENTIFIC WORKFORCE READY</p>
         <button
           type="button"

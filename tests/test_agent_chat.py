@@ -8,7 +8,7 @@ client = TestClient(app)
 
 
 def test_chat_with_valid_agents(monkeypatch):
-    monkeypatch.setenv("NEOCHEMS_LLM", "none")
+    monkeypatch.setenv("VESYN_LLM", "none")
     for agent_id in ("planner", "research", "retro", "validator", "critic", "replanner", "evaluator"):
         r = client.post(f"/api/agents/{agent_id}/chat", json={"message": "What is your primary responsibility?"})
         assert r.status_code == 200, f"failed for {agent_id}: {r.text}"

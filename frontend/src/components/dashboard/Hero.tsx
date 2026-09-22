@@ -3,12 +3,14 @@
 // CURRENT RESEARCH: the one thing on the page that is allowed to be big. The target at editorial scale on the left,
 // the run's state under it, and the molecule with the whole right side to itself. Empty state: no run, no molecule,
 // no invented figures.
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
+import { DrawStructure } from "@/components/chemistry/DrawStructure";
 import { getMolecule } from "@/lib/chem/molecule";
 import type { DashboardModel } from "@/lib/dashboard/model";
 import { useNeo } from "@/lib/store/NeoProvider";
+import { useRunComposer } from "@/lib/store/useRunComposer";
 import { MoleculeStage } from "./MoleculeStage";
 import { Dot, NOT_REPORTED, TONE_COLOR, useTween } from "./ui";
 
@@ -31,12 +33,9 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export function Hero({ m }: { m: DashboardModel }) {
-  const { health, launch, projects } = useNeo();
-  const [target, setTarget] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { projects } = useNeo();
+  const { prompt, setPrompt, smiles, setSmiles, busy, error, offline, ready, submit: start } = useRunComposer();
   const pct = useTween(m.progress.pct);
-  const offline = health !== "online";
 
   // The headline is the compound's name when the backend resolved one. Otherwise it is the molecular formula, computed
   // from the SMILES the backend resolved (and labelled as such): a SMILES string is not a title.
@@ -46,17 +45,6 @@ export function Hero({ m }: { m: DashboardModel }) {
     return r.ok ? r.molecule.formula : null;
   }, [m.target.smiles]);
   const title = m.target.name ?? formula;
-
-  async function start(e: React.FormEvent) {
-    e.preventDefault();
-    if (!target.trim() || busy || offline) return;
-    setBusy(true);
-    setError(null);
-    const r = await launch(target);
-    setBusy(false);
-    if (r.status === "ok") setTarget("");
-    else setError(r.message);
-  }
 
   return (
     <section aria-label="Current research" className="relative isolate overflow-hidden border border-nc-line bg-nc-raised" style={{ minHeight: 520 }}>
@@ -86,9 +74,10 @@ export function Hero({ m }: { m: DashboardModel }) {
             <div className="font-data text-[10px] uppercase tracking-[0.2em] text-nc-lo">{offline ? "API offline" : projects.state === "loading" ? "Loading" : "No active research run"}</div>
             <div className="mt-2 text-[52px] font-light leading-[1.02] tracking-tight text-nc-mid">{offline ? "The API is not answering." : projects.state === "loading" ? "…" : "Nothing is running."}</div>
             {!offline && projects.state !== "loading" && (
-              <form onSubmit={start} className="mt-6 flex max-w-md items-center gap-2">
-                <input value={target} onChange={(e) => setTarget(e.target.value)} spellCheck={false} placeholder="SMILES or compound name" aria-label="Start a new run: target molecule" className="nc-focus h-10 min-w-0 flex-1 border border-nc-line-strong bg-nc-base/70 px-3 font-data text-[12px] text-nc-hi placeholder:text-nc-lo" />
-                <button type="submit" disabled={busy || !target.trim()} className="nc-focus flex h-10 items-center gap-2 border border-nc-cyan/70 bg-nc-cyan/10 px-4 font-data text-[11px] uppercase tracking-[0.16em] text-nc-cyan hover:bg-nc-cyan/20 disabled:cursor-not-allowed disabled:border-nc-line disabled:bg-transparent disabled:text-nc-lo">
+              <form onSubmit={start} className="mt-6 flex max-w-xl items-center gap-2">
+                <input value={prompt} onChange={(e) => setPrompt(e.target.value)} spellCheck={false} placeholder={smiles ? "What to do with it (default: retrosynthesis)" : "“synthesis of aspirin”, “solubility of CCO”…"} aria-label="Ask Vesyn: task and molecule" className="nc-focus h-10 min-w-0 flex-1 border border-nc-line-strong bg-nc-base/70 px-3 font-data text-[12px] text-nc-hi placeholder:text-nc-lo" />
+                <DrawStructure smiles={smiles} onChange={setSmiles} height="h-10" />
+                <button type="submit" disabled={!ready} className="nc-focus flex h-10 items-center gap-2 border border-nc-cyan/70 bg-nc-cyan/10 px-4 font-data text-[11px] uppercase tracking-[0.16em] text-nc-cyan hover:bg-nc-cyan/20 disabled:cursor-not-allowed disabled:border-nc-line disabled:bg-transparent disabled:text-nc-lo">
                   <Play className="h-3 w-3" aria-hidden /> {busy ? "Starting" : "Start new run"}
                 </button>
               </form>

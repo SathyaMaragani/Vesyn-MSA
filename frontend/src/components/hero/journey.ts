@@ -26,7 +26,7 @@ export const CHAPTERS = [
 
 export const END_THRESHOLD = 0.94;
 
-/** The seven stages of the NEOchems workforce, in the order the run moves through them. */
+/** The seven stages of the Vesyn workforce, in the order the run moves through them. */
 export const STAGES = ["PLAN", "RESEARCH", "RETROSYNTHESIZE", "VALIDATE", "CRITIQUE", "REPLAN", "EVALUATE"] as const;
 
 export function chapterAt(p: number): number {
@@ -77,7 +77,7 @@ export const activeStage = (p: number) => Math.min(STAGES.length - 1, Math.floor
 /** The identity, revealed once the camera is inside the structure. */
 export const identityOpacity = (p: number) => smooth(seg(p, 0.88, 0.98));
 /**
- * How the name is earned, in order: the structure thins (the last atoms sweep past), NEOchems begins as a
+ * How the name is earned, in order: the structure thins (the last atoms sweep past), Vesyn begins as a
  * hairline outline, resolves into solid type, then the descriptor, then the way in.
  */
 export const brandAlpha = (p: number) => smooth(seg(p, 0.8, 0.9));

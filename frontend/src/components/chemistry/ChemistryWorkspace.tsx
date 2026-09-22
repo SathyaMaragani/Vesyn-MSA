@@ -27,7 +27,7 @@ export function ChemistryWorkspace() {
             <Field label="Query" value={target?.query ?? run.query} mono />
             <Field label="Canonical SMILES" value={target?.canonical_smiles} mono />
             <Field label="Name" value={target?.matched_name} />
-            <Field label="Resolved via" value={target?.source === "pubchem" ? "PubChem (name lookup)" : target?.source === "smiles" ? "Input was already a structure" : null} />
+            <Field label="Resolved via" value={target?.source === "pubchem" ? "PubChem (name lookup)" : target?.source === "chembl" ? "Local ChEMBL approved-drug name" : target?.source === "smiles" ? "Input was already a structure" : null} />
             {props && <Field label="InChIKey" value={props.inchikey} mono />}
             {target?.canonical_smiles ? (
               <div>

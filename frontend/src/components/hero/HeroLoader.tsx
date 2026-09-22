@@ -199,7 +199,7 @@ export function HeroLoader({ bus, engineReady, onDone }: { bus: HeroBus; engineR
         background: "radial-gradient(ellipse 60% 70% at 100% 0%, rgba(214,164,91,0.16), transparent 62%), radial-gradient(ellipse 70% 60% at 0% 108%, rgba(184,117,82,0.2), transparent 64%), radial-gradient(ellipse 34% 40% at 50% 50%, rgba(143,175,154,0.14), transparent 72%), #10110f",
       }}
       role="status"
-      aria-label="Loading NEOchems"
+      aria-label="Loading Vesyn"
     >
       <canvas ref={canvas} className="h-[520px] w-[520px]" aria-hidden="true" />
 
@@ -211,7 +211,7 @@ export function HeroLoader({ bus, engineReady, onDone }: { bus: HeroBus; engineR
       </div>
 
       <div className="absolute bottom-[clamp(32px,7vh,84px)] left-[clamp(24px,4vw,64px)] font-data text-[10px] tracking-[0.28em]">
-        <div className="mb-3 text-nc-mid">NEO<span className="text-nc-cyan">CHEMS</span></div>
+        <div className="mb-3 text-nc-mid">VE<span className="text-nc-cyan">SYN</span></div>
         {steps.map((s) => (
           <div key={s.id} className="flex items-center gap-3 leading-[1.9]">
             <span className={s.state === "ok" ? "text-nc-cyan" : s.state === "failed" ? "text-nc-bad" : "text-nc-lo"}>{s.state === "pending" ? "·" : "●"}</span>

@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-/** The NEOchems palette: graphite, warm black, warm ivory, mineral green, sage, oxidized copper, soft amber. */
+/** The Vesyn palette: graphite, warm black, warm ivory, mineral green, sage, oxidized copper, soft amber. */
 export const C = {
   floor: 0x181917,
   floorLine: 0x0f100e,

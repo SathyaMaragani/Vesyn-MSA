@@ -1,6 +1,6 @@
-# NeoChems — Product Plan
+# Vesyn — Product Plan
 
-How NeoChems becomes a working product: RamChems' chemistry, run by the
+How Vesyn becomes a working product: RamChems' chemistry, run by the
 multi-agent system, with every number on screen traceable to the tool call that
 produced it.
 

@@ -88,7 +88,7 @@ function LabLayer({ children }: { children: React.ReactNode }) {
             <div className="border border-nc-bad/50 bg-nc-base/90">
               <StateNotice
                 kind="offline"
-                detail="The NeoChems API is unreachable. Agents show as unknown — nothing is simulated. Start the backend and this view reconnects on its own."
+                detail="The Vesyn API is unreachable. Agents show as unknown — nothing is simulated. Start the backend and this view reconnects on its own."
               />
             </div>
           </div>

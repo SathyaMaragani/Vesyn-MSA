@@ -1,6 +1,8 @@
 """Search endpoints. Requires the DB up and ingested:
    docker compose up -d && python scripts/ingest_molecules.py
 """
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -222,6 +224,11 @@ def test_stats_route_does_not_shadow_molecule_by_id(client, _db):
 # --- resolve: people type names, not SMILES ---------------------------------
 
 
+def _pubchem_down(detail: str) -> bool:
+    """Unreachable, or up but failing (HTTP 5xx): either way the network test cannot run."""
+    return "could not be reached" in detail or re.search(r"HTTP 5\d\d", detail) is not None
+
+
 def test_resolve_passes_a_smiles_through_without_a_network_call(client):
     """A structure must resolve locally - no PubChem round trip for SMILES."""
     body = client.post("/molecules/resolve", json={"query": ASPIRIN}).json()
@@ -247,7 +254,7 @@ def test_resolve_looks_up_a_compound_name(client):
     """glucose -> a structure. This is the bug that made search look broken:
     a name-shaped query used to fail as an unparseable SMILES."""
     response = client.post("/molecules/resolve", json={"query": "glucose"})
-    if response.status_code == 400 and "could not be reached" in response.json()["detail"]:
+    if response.status_code == 400 and _pubchem_down(response.json()["detail"]):
         pytest.skip("PubChem unreachable; name resolution needs network")
     assert response.status_code == 200
     body = response.json()
@@ -263,7 +270,7 @@ def test_resolve_reports_an_unknown_name_clearly(client):
     response = client.post(
         "/molecules/resolve", json={"query": "definitely_not_a_compound_zzq"}
     )
-    if "could not be reached" in response.json().get("detail", ""):
+    if _pubchem_down(response.json().get("detail", "")):
         pytest.skip("PubChem unreachable; name resolution needs network")
     assert response.status_code == 400
     assert "not a valid SMILES" in response.json()["detail"]

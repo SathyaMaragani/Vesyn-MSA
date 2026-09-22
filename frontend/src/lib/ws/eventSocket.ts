@@ -37,8 +37,9 @@ export function resumeSeq(lastSeq: number): number {
   return Math.max(0, lastSeq - RESUME_MARGIN);
 }
 
+/** Path form, not a query string: some tunnels (Tailscale Funnel) drop a WebSocket's query. */
 export function eventsUrl(baseUrl: string, runId: string, after: number): string {
-  return `${baseUrl}/ws/events?run_id=${encodeURIComponent(runId)}&after=${after}`;
+  return `${baseUrl}/ws/events/${encodeURIComponent(runId)}/${after}`;
 }
 
 export class EventSocket {
@@ -96,7 +97,7 @@ export class EventSocket {
       const raw = typeof msg.data === "string" ? msg.data : "";
       const event = parseEventJson(raw);
       if (event) this.opts.onEvent(event);
-      else this.opts.onRejected?.("not a valid NeoChems event", raw.slice(0, 200));
+      else this.opts.onRejected?.("not a valid Vesyn event", raw.slice(0, 200));
     };
     socket.onerror = () => {
       // onclose always follows; reconnect is handled there.

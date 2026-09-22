@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef } from "react";
-import Link from "next/link";
 import type { ApiHealth } from "@/types/api";
 import type { HeroBus } from "./heroBus";
 import type { HeroFacts } from "./heroWorld";
@@ -78,7 +77,7 @@ export function HeroFrame({
             <circle cx="12" cy="12" r="2.6" fill="rgb(184 117 82)" />
           </svg>
           <span className="font-data text-[12px] tracking-[0.3em] text-nc-hi">
-            NEO<span className="text-nc-cyan">chems</span>
+            VE<span className="text-nc-cyan">syn</span>
           </span>
         </div>
         <div ref={tagline} className="mt-2 pl-[28px] font-data text-[8px] tracking-[0.38em] text-nc-lo">AI SCIENTIFIC WORKFORCE</div>
@@ -138,7 +137,7 @@ export function HeroFrame({
         </div>
       </div>
 
-      {/* minimal index, top-right: three ways out of the hero, each with a marker */}
+      {/* minimal index, top-right: two ways out of the hero, each with a marker */}
       <nav aria-label="Primary" className="pointer-events-auto absolute right-[clamp(20px,2.6vw,44px)] top-[clamp(18px,3.4vh,40px)] flex flex-col items-end gap-2 [text-shadow:0_0_14px_rgba(16,17,15,0.95),0_0_4px_rgba(16,17,15,0.9)]">
         <button type="button" onClick={() => onJump(1)} className={NAV} {...EXPLORE}>
           SYSTEM
@@ -150,11 +149,6 @@ export function HeroFrame({
           <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-warn" />
           <span className="w-4 text-left text-[8px] text-nc-lo">02</span>
         </button>
-        <Link href="/landing" className={NAV} {...EXPLORE}>
-          ABOUT
-          <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-warn" />
-          <span className="w-4 text-left text-[8px] text-nc-lo">03</span>
-        </Link>
       </nav>
 
       {/* chapter index: the scroll's ticks, right edge (hover to read, click to jump) */}

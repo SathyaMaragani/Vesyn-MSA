@@ -84,7 +84,7 @@ def run_tier_1(structural, learned):
 
 def run_tier_2():
     print("\n" + "="*60)
-    print("TIER 2: RAMCHEMS ROUTE BENCHMARK")
+    print("TIER 2: VESYN ROUTE BENCHMARK")
     print("="*60)
     
     # We must load RetrosynthesisService, but benchmark is run independently.

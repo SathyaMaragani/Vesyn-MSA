@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * NEOchems laptop workspace - design tokens.
+ * Vesyn laptop workspace - design tokens.
  * "Cinematic scientific operating system": graphite, cool-white type, one
  * restrained cyan accent. Colour carries meaning and nothing else:
  *   cyan = in progress / selected     green = validated, completed
@@ -130,8 +130,12 @@ body {
 
 /* Site cursor: the system cursor is hidden only once the custom one is live, and stays over text fields. */
 html.nc-cursor-live,
-html.nc-cursor-live * {
+/* dialogs render in the top layer, above the site cursor: they keep native cursors (Ketcher's tools too) */
+html.nc-cursor-live *:not(dialog, dialog *) {
   cursor: none !important;
+}
+html.nc-cursor-live dialog {
+  cursor: auto; /* not inherited "none" from body; children inherit this or set their own */
 }
 html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
   cursor: text !important;

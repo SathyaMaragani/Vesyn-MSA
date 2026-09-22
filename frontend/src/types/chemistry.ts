@@ -5,7 +5,7 @@ export interface TargetResolution {
   query: string;
   canonical_smiles: string;
   /** "smiles" when the input was already a structure, "pubchem" when looked up by name. */
-  source: "smiles" | "pubchem";
+  source: "smiles" | "chembl" | "pubchem";
   matched_name: string | null;
 }
 

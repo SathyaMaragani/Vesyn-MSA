@@ -1,4 +1,4 @@
-"""NeoChems agent layer.
+"""Vesyn agent layer.
 
 Unit tests for the decision logic run instantly. The end-to-end tests run the
 real agent team (AiZynthFinder, RDKit, evidence DB) on aspirin, so they need
@@ -10,7 +10,7 @@ import json
 import os
 import time
 
-os.environ["NEOCHEMS_LLM"] = "none"  # deterministic prose; set before the app imports
+os.environ["VESYN_LLM"] = "none"  # deterministic prose; set before the app imports
 
 import pytest
 from fastapi.testclient import TestClient
@@ -124,10 +124,25 @@ def test_gateway_enforces_search_budget():
 
 # --- end to end ----------------------------------------------------------------
 
+# The API writes to the live database, so what these tests create is removed afterwards -
+# by exact id, never by pattern, so nothing a person made while they ran is touched.
+_MADE: list[str] = []
+
+
+def _purge(project_ids: list[str]) -> None:
+    runs = [r["id"] for r in store.all_("SELECT id FROM mas.runs WHERE project_id = ANY(%s)", project_ids)]
+    for table in ("mas.events", "mas.tool_calls", "mas.tasks", "mas.routes"):
+        store.execute(f"DELETE FROM {table} WHERE run_id = ANY(%s)", runs)
+    store.execute("DELETE FROM mas.runs WHERE project_id = ANY(%s)", project_ids)
+    store.execute("DELETE FROM mas.projects WHERE id = ANY(%s)", project_ids)
+
+
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as c:
         yield c
+        if _MADE:
+            _purge(_MADE)
 
 
 def _wait(client, run_id, timeout=300):
@@ -144,6 +159,7 @@ def _wait(client, run_id, timeout=300):
 def aspirin_run(client):
     r = client.post("/api/projects", json={"target": ASPIRIN, "name": "aspirin e2e", "top_n": 3})
     assert r.status_code == 201
+    _MADE.append(r.json()["project"]["id"])
     return _wait(client, r.json()["run"]["id"])
 
 
@@ -197,14 +213,17 @@ def test_routes_are_persisted(client, aspirin_run):
     assert client.get(f"/api/routes/{routes[0]['id']}").json()["route"]["tree"]
 
 
-def test_websocket_replays_history(client, aspirin_run):
-    with client.websocket_connect(f"/ws/events?run_id={aspirin_run['id']}&after=0") as ws:
+@pytest.mark.parametrize("form", ["/ws/events?run_id={id}&after=0", "/ws/events/{id}/0"])
+def test_websocket_replays_history(client, aspirin_run, form):
+    # the path form survives proxies that strip a WebSocket's query string
+    with client.websocket_connect(form.format(id=aspirin_run["id"])) as ws:
         first = ws.receive_json()
     assert first["type"] == "RUN_STARTED" and first["run_id"] == aspirin_run["id"]
 
 
 def test_unresolvable_target_fails_the_run_cleanly(client):
     r = client.post("/api/projects", json={"target": "definitely-not-a-molecule-zzqx"})
+    _MADE.append(r.json()["project"]["id"])
     run = _wait(client, r.json()["run"]["id"])
     assert run["status"] == "FAILED" and run["error"]
     types = [e["type"] for e in client.get("/api/events", params={"run_id": run["id"]}).json()]
@@ -214,6 +233,7 @@ def test_unresolvable_target_fails_the_run_cleanly(client):
 def test_agui_stream(client):
     body = {"threadId": f"thread_test_{int(time.time())}", "messages": [{"role": "user", "content": ASPIRIN}],
             "state": {"top_n": 2}}
+    _MADE.append(body["threadId"])
     kinds = []
     with client.stream("POST", "/agui", json=body) as r:
         assert r.status_code == 200

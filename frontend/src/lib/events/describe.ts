@@ -1,6 +1,7 @@
 // One-line, human-readable description of an event. Built only from the event's
 // own payload - no inference, no invented detail.
 import type { NeoEvent } from "../../types/events.ts";
+import { missedRoute } from "../../types/events.ts";
 import type { Tone } from "./activity.ts";
 
 export interface EventLine {
@@ -83,7 +84,7 @@ export function describeEvent(ev: NeoEvent): EventLine {
       return {
         tag: "DONE",
         text: ev.data.recommendation,
-        tone: ev.data.recommended_route_id === null ? "warn" : "ok",
+        tone: missedRoute(ev.data) ? "warn" : "ok",
       };
     case "PROJECT_FAILED":
       return { tag: "FAILED", text: ev.data.error, tone: "bad" };

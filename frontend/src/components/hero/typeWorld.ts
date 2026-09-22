@@ -52,7 +52,26 @@ void main(){
 }
 `;
 
-function drawTexture(text: string, ink: Ink, outline: boolean, fontPx: number, width: number, height: number, blur = 0): THREE.CanvasTexture {
+/**
+ * The V of the Vesyn logo, traced from the reference render (without its orbit and spheres) and
+ * weighted to sit with the serif: its ink coverage and thick stroke match the font's own V.
+ * Box: x 0..1000 = the font V's ink width; y 0 = cap height, 1000 = baseline (the round bottom
+ * dips just below it, as round letters do).
+ */
+const BRAND_V = "M 0 0 L 142.2 0 Q 256.7 77.6 289.9 155.2 L 575.8 824.6 L 923.9 41.3 C 923.9 -14.5 1000 -14.5 1000 41.3 L 614.6 961.2 C 585.3 1032.8 522.6 1032.8 492 961.2 L 147.7 155.2 Q 114.5 77.6 0 0 Z";
+
+/** Paint the logo's V exactly where the font's "V" would be, so everything after it (and anchored to the word) stays put. */
+function drawBrandV(g: CanvasRenderingContext2D, x: number, baseline: number, outline: boolean): void {
+  const m = g.measureText("V");
+  const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+  const h = m.actualBoundingBoxAscent;
+  const path = new Path2D();
+  path.addPath(new Path2D(BRAND_V), new DOMMatrix([w / 1000, 0, 0, h / 1000, x - m.actualBoundingBoxLeft, baseline - h]));
+  if (outline) g.stroke(path);
+  else g.fill(path);
+}
+
+function drawTexture(text: string, ink: Ink, outline: boolean, fontPx: number, width: number, height: number, blur = 0, brandV = false): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = width;
   c.height = height;
@@ -65,17 +84,20 @@ function drawTexture(text: string, ink: Ink, outline: boolean, fontPx: number, w
   const spacing = -0.03 * fontPx;
   let x = fontPx * 0.06;
   const y = height * 0.76;
-  for (const ch of text) {
+  [...text].forEach((ch, i) => {
+    const logoV = brandV && i === 0;
     if (outline) {
       g.lineWidth = Math.max(2, fontPx * 0.0085);
       g.strokeStyle = ink.line;
-      g.strokeText(ch, x, y);
+      if (logoV) drawBrandV(g, x, y, true);
+      else g.strokeText(ch, x, y);
     } else {
       g.fillStyle = ink.solid;
-      g.fillText(ch, x, y);
+      if (logoV) drawBrandV(g, x, y, false);
+      else g.fillText(ch, x, y);
     }
-    x += g.measureText(ch).width + spacing;
-  }
+    x += g.measureText(ch).width + spacing; // the font's own advance: nothing after the V moves
+  });
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -100,13 +122,13 @@ export interface TextPlane {
   dispose: () => void;
 }
 
-/** A plane carrying `text`, in solid and outline, ready for the crossfade shader. */
-export function createTextPlane(text: string, ink: Ink, fontPx = 320, shadow = 0): TextPlane {
+/** A plane carrying `text`, in solid and outline, ready for the crossfade shader. `brandV`: its first letter is the logo's V. */
+export function createTextPlane(text: string, ink: Ink, fontPx = 320, shadow = 0, brandV = false): TextPlane {
   const width = measure(text, ink, fontPx);
   const height = Math.ceil(fontPx * 1.3);
   // a shadow plane is the same word, blurred, painted near-black, and never writes depth
-  const tSolid = drawTexture(text, ink, false, fontPx, width, height, shadow);
-  const tLine = shadow ? tSolid : drawTexture(text, ink, true, fontPx, width, height);
+  const tSolid = drawTexture(text, ink, false, fontPx, width, height, shadow, brandV);
+  const tLine = shadow ? tSolid : drawTexture(text, ink, true, fontPx, width, height, 0, brandV);
   const material = new THREE.ShaderMaterial({
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -256,8 +278,8 @@ const BRAND_FONT = 300;
 
 export function createBrand(): Brand {
   const ink = { solid: "rgb(232,228,216)", line: "rgba(214,164,91,0.95)", hex: 0xe8e4d8, lineHex: 0xd6a45b };
-  const plane = createTextPlane("NEOchems", ink, BRAND_FONT);
-  const soft = createTextPlane("NEOchems", ink, BRAND_FONT, 7); // its shadow: a little depth, not an effect
+  const plane = createTextPlane("Vesyn", ink, BRAND_FONT, 0, true);
+  const soft = createTextPlane("Vesyn", ink, BRAND_FONT, 7, true); // its shadow: a little depth, not an effect
   const mesh = plane.mesh;
   const shade = soft.mesh;
   shade.renderOrder = 1;

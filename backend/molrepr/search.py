@@ -16,7 +16,7 @@ from psycopg_pool import ConnectionPool
 from backend.molrepr import service
 
 DSN = os.environ.get(
-    "RAMCHEMS_DSN", "postgresql://ramchems:ramchems@127.0.0.1:5434/ramchems"
+    "VESYN_DSN", "postgresql://vesyn:vesyn@127.0.0.1:5437/vesyn"
 )
 
 # Opened lazily; the API closes it on shutdown.

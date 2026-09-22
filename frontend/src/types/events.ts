@@ -28,6 +28,13 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+/** What a run was asked to do (backend/mas/intent.py TASKS). Only retrosynthesis produces routes. */
+export type Task = "retrosynthesis" | "profile" | "properties" | "solubility" | "analogues";
+
+/** A run finished without a route when routes were the point: absent task = a run from before prompts. */
+export const missedRoute = (d: { recommended_route_id: number | null; task?: Task }) =>
+  d.recommended_route_id === null && (d.task ?? "retrosynthesis") === "retrosynthesis";
+
 export interface SearchBudget {
   attempt?: number;
   iteration_limit: number;
@@ -74,7 +81,8 @@ export interface EventDataMap {
     duration_ms?: number;
   };
   MESSAGE_SENT: { to: AgentId; text: string };
-  MOLECULE_RECEIVED: { smiles: string; query: string; name: string | null; source: "smiles" | "pubchem" };
+  /** task / prompt: what the Orchestrator read from the request (absent on runs from before prompts). */
+  MOLECULE_RECEIVED: { smiles: string; query: string; name: string | null; source: "smiles" | "chembl" | "pubchem"; task?: Task; prompt?: string };
   ROUTE_GENERATED: { route_id: number; attempt: number; steps: number; state_score: number | null };
   VALIDATION_STARTED: { route_id: number; attempt: number; steps: number };
   VALIDATION_COMPLETED: {
@@ -94,6 +102,7 @@ export interface EventDataMap {
   REPLAN_COMPLETED: { next: SearchBudget };
   PROJECT_COMPLETED: {
     project_id: string;
+    task?: Task;
     recommended_route_id: number | null;
     recommendation: string;
     routes: number;

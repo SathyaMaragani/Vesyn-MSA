@@ -1,12 +1,13 @@
-"""The NeoChems brain: the agents wired into one LangGraph state machine.
+"""The Vesyn brain: the agents wired into one LangGraph state machine.
 
     START -> planner -> research ─┐
                      -> retro ────┴-> validator ─┬─ PASS ──────────> critic -> evaluator -> END
                           ^                      └─ FAIL -> replanner ─┐
                           └────────────────────────────────────────────┘
 
-research and retro run concurrently in one superstep, so the validator only
-starts once both are done. On a replan only retro re-runs.
+That is a retrosynthesis request. research and retro run concurrently in one
+superstep, so the validator only starts once both are done. On a replan only
+retro re-runs. Every other task is short: planner -> research -> evaluator.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from langgraph.graph import END, START, StateGraph
 from backend.mas import agents, events, store
 from backend.retrosynthesis.service import DEFAULT_ITERATION_LIMIT
 
-logger = logging.getLogger("neochems.graph")
+logger = logging.getLogger("vesyn.graph")
 
 
 class RunState(TypedDict, total=False):
@@ -27,9 +28,11 @@ class RunState(TypedDict, total=False):
     run_id: str
     project_id: str
     query: str
+    smiles: str | None  # a drawn structure; wins over any molecule named in the query
     top_n: int
     iteration_limit: int
     # written by agents
+    task: str
     target: dict
     tasks: dict
     search: dict
@@ -47,14 +50,19 @@ def _route_after_validation(state: RunState) -> str:
     return agents.after_validation(state["verdict"], state["search"])
 
 
+def _retro(state: RunState) -> bool:
+    return state["task"] == "retrosynthesis"
+
+
 def build():
     g = StateGraph(RunState)
     for name, node in agents.NODES.items():
         g.add_node(name, node)
     g.add_edge(START, "planner")
-    g.add_edge("planner", "research")
-    g.add_edge("planner", "retro")
-    g.add_edge("research", "validator")
+    g.add_conditional_edges(
+        "planner", lambda s: ["research", "retro"] if _retro(s) else ["research"], ["research", "retro"])
+    g.add_conditional_edges(
+        "research", lambda s: "validator" if _retro(s) else "evaluator", ["validator", "evaluator"])
     g.add_edge("retro", "validator")
     g.add_conditional_edges("validator", _route_after_validation, ["critic", "replanner"])
     g.add_edge("replanner", "retro")
@@ -116,14 +124,15 @@ async def _execute(run: dict, project: dict) -> None:
             store.execute,
             "UPDATE mas.runs SET status = 'RUNNING', started_at = now() WHERE id = %s", run_id)
         await asyncio.to_thread(store.update, "mas.projects", project["id"], status="RUNNING")
-        await events.publish("RUN_STARTED", run_id=run_id, project_id=project["id"],
-                             query=project["target_query"], params=run["params"])
-        try:
+        try:  # everything from here on ends in COMPLETED or FAILED - never a run stuck RUNNING
+            await events.publish("RUN_STARTED", run_id=run_id, project_id=project["id"],
+                                 query=project["target_query"], params=run["params"])
             state = await GRAPH.ainvoke(
                 {
                     "run_id": run_id,
                     "project_id": project["id"],
                     "query": project["target_query"],
+                    "smiles": project.get("target_smiles"),
                     **run["params"],
                 },
                 {"recursion_limit": 50},
@@ -136,7 +145,7 @@ async def _execute(run: dict, project: dict) -> None:
                 store.adapt(final), run_id)
             await asyncio.to_thread(store.update, "mas.projects", project["id"], status="COMPLETED")
             await events.publish(
-                "PROJECT_COMPLETED", run_id=run_id, project_id=project["id"],
+                "PROJECT_COMPLETED", run_id=run_id, project_id=project["id"], task=final["task"],
                 recommended_route_id=final["recommended_route_id"],
                 recommendation=final["recommendation"], routes=len(final["ranked_routes"]),
             )

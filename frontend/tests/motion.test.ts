@@ -19,17 +19,14 @@ describe("navigation classification", () => {
   it("sections", () => {
     assert.equal(sectionOf("/"), "");
     assert.equal(sectionOf("/lab/routes"), "lab");
-    assert.equal(sectionOf("/landing"), "landing");
   });
   it("moving inside the lab is a soft navigation (sheets over one world, no wipe)", () => {
     assert.equal(classifyNavigation("/lab", "/lab/chemistry", O).kind, "soft");
     assert.equal(classifyNavigation("/lab/routes", "/lab", O).kind, "soft");
   });
-  it("crossing sections wipes; the legacy landing page is a hard document load", () => {
+  it("crossing sections wipes", () => {
     assert.deepEqual(classifyNavigation("/", "/lab", O), { kind: "wipe", path: "/lab" });
     assert.equal(classifyNavigation("/lab", "/", O).kind, "wipe");
-    assert.equal(classifyNavigation("/", "/landing", O).kind, "hard");
-    assert.equal(classifyNavigation("/landing", "/lab", O).kind, "hard");
   });
   it("leaves alone everything the browser should handle itself", () => {
     assert.equal(classifyNavigation("/", "/lab", O, { meta: true }).kind, "none");
@@ -44,7 +41,6 @@ describe("navigation classification", () => {
   it("labels the destination", () => {
     assert.equal(destinationLabel("/lab/routes"), "LABORATORY");
     assert.equal(destinationLabel("/"), "AIRLOCK");
-    assert.equal(destinationLabel("/landing"), "ABOUT");
   });
 });
 

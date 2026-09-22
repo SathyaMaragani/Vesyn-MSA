@@ -4,7 +4,7 @@ import { deriveActivity } from "../src/lib/events/activity.ts";
 import { describeEvent } from "../src/lib/events/describe.ts";
 import { applyEvents, emptyRun, foldAll } from "../src/lib/events/fold.ts";
 import { parseEvent, parseEventJson, rejectionReason } from "../src/lib/events/parse.ts";
-import { EVENT_TYPES } from "../src/types/events.ts";
+import { EVENT_TYPES, missedRoute } from "../src/types/events.ts";
 import { ev, sampleRun } from "./fixtures.ts";
 
 describe("parseEvent", () => {
@@ -187,5 +187,20 @@ describe("describeEvent", () => {
     const replan = sampleRun().find((e) => e.type === "REPLAN_STARTED");
     assert.ok(replan);
     assert.match(describeEvent(replan).text, /100 iterations, top 5 → 250 iterations, top 10/);
+  });
+});
+
+describe("prompted tasks", () => {
+  it("a missing route is only a miss when routes were asked for", () => {
+    assert.equal(missedRoute({ recommended_route_id: null }), true); // runs from before prompts
+    assert.equal(missedRoute({ recommended_route_id: null, task: "retrosynthesis" }), true);
+    assert.equal(missedRoute({ recommended_route_id: null, task: "solubility" }), false);
+    assert.equal(missedRoute({ recommended_route_id: 2, task: "retrosynthesis" }), false);
+  });
+
+  it("folds the task the Orchestrator read", () => {
+    const molecule = { smiles: "CCO", query: "ethanol", name: "ethanol", source: "pubchem" as const };
+    assert.equal(foldAll("r", [ev("MOLECULE_RECEIVED", 1, { ...molecule, task: "solubility" })]).task, "solubility");
+    assert.equal(foldAll("r", [ev("MOLECULE_RECEIVED", 1, molecule)]).task, "retrosynthesis");
   });
 });

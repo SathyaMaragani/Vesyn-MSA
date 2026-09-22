@@ -1,10 +1,10 @@
-# NeoChems Frontend Handoff
+# Vesyn Frontend Handoff
 
 Written for the next developer picking up the frontend. It says what exists, how it is wired to the backend, how to run it, and what was and was not verified. The longer design notes (motion system, hero, lab, dashboard) are in [FRONTEND.md](FRONTEND.md); this file is the map.
 
 ## Frontend completed
 
-A Next.js 14 (App Router) + React 18 + TypeScript + Tailwind frontend in `frontend/`, replacing the earlier single-page lab UI. Three.js is used directly (no React Three Fiber). It has four modes, each its own page, and all of them read the existing NeoChems API and event stream; nothing is mocked.
+A Next.js 14 (App Router) + React 18 + TypeScript + Tailwind frontend in `frontend/`, replacing the earlier single-page lab UI. Three.js is used directly (no React Three Fiber). It has four modes, each its own page, and all of them read the existing Vesyn API and event stream; nothing is mocked.
 
 | Mode | Purpose |
 | --- | --- |
@@ -19,7 +19,7 @@ The backend was **not** changed by this work.
 
 | Route | What it does |
 | --- | --- |
-| `/` | The molecular hero ("THE SCAFFOLD"): one oversized molecule with the headline placed inside the scene, depth of field, scroll journey. **ENTER NEOCHEMS** leads to `/dashboard`. |
+| `/` | The molecular hero ("THE SCAFFOLD"): one oversized molecule with the headline placed inside the scene, depth of field, scroll journey. **ENTER VESYN** leads to `/dashboard`. |
 | `/dashboard` | Scientific command dashboard: current research with a large molecule, the seven agents, the workflow including the replan branch, the live event feed, synthesis counts, a route preview, evidence, system health (with the backend's reasons and an INSPECT control), alerts, a 2D lab plan and quick actions. **ENTER LAB** wipes into `/lab`. Empty state: "NO ACTIVE RESEARCH RUN" with a start form. |
 | `/lab` | The 3D facility. The layout owns the 3D world and HUD and persists across `/lab/*`; the route itself renders nothing. |
 | `/lab/chemistry` | Molecular workspace: the target and route molecules drawn from the backend's SMILES. |
@@ -27,16 +27,14 @@ The backend was **not** changed by this work.
 | `/lab/evidence` | Evidence and provenance, keeping the backend's evidence level (direct / similar / AI-predicted / none). |
 | `/lab/intelligence` | Situation brief and decision summaries built only from event payloads. |
 | `/lab/audit` | Flight recorder: timeline scrubber, tool-call audit, and a Log view of every event. |
-| `/landing` | The previous static landing page, moved here from `/` so nothing was lost. Not part of the new journey. |
 
-Journey: `/` -> `/dashboard` -> `/lab` -> `/lab/*`. The lab's tab bar has a Dashboard link back. The chosen project is kept in `sessionStorage` (`neochems.project`) so the dashboard and the lab agree on the current run.
+Journey: `/` -> `/dashboard` -> `/lab` -> `/lab/*`. The lab's tab bar has a Dashboard link back. The chosen project is kept in `sessionStorage` (`vesyn.project`) so the dashboard and the lab agree on the current run.
 
 ## Architecture
 
 ```
 frontend/src/
   app/(app)/            routes: /, /dashboard, /lab, /lab/*   (shared layout: fonts, styles, MotionRoot)
-  app/(marketing)/      /landing (old static page)
   components/hero/      the entry: scene, loader, type-in-world, depth of field, scroll journey
   components/dashboard/ the dashboard (2D, one component per section)
   components/facility/  the 3D facility (zones, architecture, kit, camera, canvas)
@@ -135,10 +133,10 @@ Run at handoff on Windows 11, Node with the repo's existing `node_modules`:
 | --- | --- |
 | `npm run typecheck` | clean |
 | `npm test` | 166 tests, 166 pass, 0 fail |
-| `npm run lint` | 0 errors, 3 warnings (`no-css-tags` in `(marketing)/landing/page.tsx`; two `exhaustive-deps` in `ui/GlassSurface.tsx`; none in the new code) |
-| `npm run build` | passes; `/`, `/dashboard`, `/landing`, `/lab` and all five `/lab/*` routes are prerendered |
+| `npm run lint` | 0 errors, 0 warnings |
+| `npm run build` | passes; `/`, `/dashboard`, `/lab` and all five `/lab/*` routes are prerendered |
 | HTTP | all eight routes (`/`, `/dashboard`, `/lab`, `/lab/chemistry`, `/lab/routes`, `/lab/evidence`, `/lab/intelligence`, `/lab/audit`) return 200 on the dev server |
-| Browser journey | headed Edge at 1440x900: `/` -> ENTER NEOCHEMS -> `/dashboard` -> ENTER LAB -> `/lab` -> each of the five tabs -> Dashboard; every hop landed on the right path, a canvas was present, and there were no uncaught page errors |
+| Browser journey | headed Edge at 1440x900: `/` -> ENTER VESYN -> `/dashboard` -> ENTER LAB -> `/lab` -> each of the five tabs -> Dashboard; every hop landed on the right path, a canvas was present, and there were no uncaught page errors |
 
 During development (not re-run at handoff) the dashboard was also checked live against the backend through a real run (progress 33% -> 50% -> 100%, current agent moving between departments), and in the no-run and API-offline states using intercepted requests.
 
@@ -158,9 +156,8 @@ These are backend or environment state, shown honestly by the UI rather than hid
 - **`chembl.similarity` fails** in runs with "relation molecules does not exist"; it appears as a failed-tool alert and in the evidence numbers.
 - **Evidence index not configured** (`/retrosynthesis/evidence/status` reports `available: false`); the dashboard shows NOT CONFIGURED.
 - **AiZynthFinder** was unloaded earlier in development and reported as OFFLINE with the backend's reason ("AiZynthFinder is not loaded"). Its data is now downloaded locally and `/retrosynthesis/health` reported `model_loaded: true` at handoff. `data/external/` is gitignored, so each machine has to download it (`download_public_data data/external/aizynthfinder`).
-- **LLM prose.** The critic and report use `NEOCHEMS_LLM` (default local Ollama). Runs during development used `NEOCHEMS_LLM=none`.
+- **LLM prose.** The critic and report use `VESYN_LLM` (default local Ollama). Runs during development used `VESYN_LLM=none`.
 - **Unused earlier code.** `components/airlock/` and `components/ui/airlock-spaceship-hero.tsx` (with their tests) are an earlier entry sequence that no route imports. Safe to remove if nobody wants them.
-- **README is behind.** It still describes `/` as the landing page; `/` is now the hero and the old landing page is `/landing`.
 - **Structures are layouts, not conformers.** The backend returns SMILES only; the drawings ignore stereochemistry.
 - **No cancel.** The backend has no cancel endpoint, so the UI has none.
 - **Ports.** UI on 3100 (3000 is in a Windows excluded range on the dev machine); API on 8436.
@@ -171,5 +168,5 @@ These are backend or environment state, shown honestly by the UI rather than hid
 2. Install: `cd frontend && npm install`.
 3. Start the backend: Postgres, then `uvicorn backend.api.main:app --port 8436` (see the README for the environment and optional services).
 4. Start the frontend: `npm run dev` in `frontend/`.
-5. Verify: open `/`, click ENTER NEOCHEMS, then ENTER LAB, and step through the five lab tabs; start a run from the dashboard and watch the workflow and feed update. Run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build`.
+5. Verify: open `/`, click ENTER VESYN, then ENTER LAB, and step through the five lab tabs; start a run from the dashboard and watch the workflow and feed update. Run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build`.
 6. Continue from the pushed commit. Good next steps: check the dashboard at 1600, 1920 and 2560 widths; exercise a run that replans and a run that fails; fix the backend items above, after which the corresponding health rows should turn green with no frontend change.

@@ -3,6 +3,7 @@
 import { WORKFLOW_ORDER } from "./presentation.ts";
 import type { AgentView } from "./agentViews.ts";
 import type { RunView } from "./fold.ts";
+import { missedRoute } from "../../types/events.ts";
 
 const IN_PROGRESS = new Set(["thinking", "working", "searching", "validating", "critiquing", "replanning", "communicating"]);
 
@@ -44,8 +45,8 @@ export function latestAlert(run: RunView): Alert | null {
       case "PROJECT_COMPLETED":
         return {
           seq: ev.seq,
-          tone: ev.data.recommended_route_id === null ? "warn" : "ok",
-          title: ev.data.recommended_route_id === null ? "NO ROUTE RECOMMENDED" : "RUN COMPLETED",
+          tone: missedRoute(ev.data) ? "warn" : "ok",
+          title: missedRoute(ev.data) ? "NO ROUTE RECOMMENDED" : "RUN COMPLETED",
           detail: ev.data.recommendation,
           agentId: "evaluator",
           href: "/lab/routes",

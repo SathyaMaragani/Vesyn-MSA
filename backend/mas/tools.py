@@ -1,7 +1,7 @@
-"""Every scientific capability, registered as a governed NeoChems tool.
+"""Every scientific capability, registered as a governed Vesyn tool.
 
-Nothing here is new chemistry: each tool wraps a RamChems service that already
-existed and is already tested. The value added is the gateway around them -
+Nothing here is new chemistry: each tool wraps a chemistry service (inherited
+from RamChems) that is already tested. The value added is the gateway around them -
 policy, audit and events - see gateway.py.
 
 Route-tree tools take {"tree": <route tree>} and return {"tree": <enriched
@@ -16,7 +16,7 @@ from functools import cache
 from rdkit import Chem
 from rdkit.Chem import Crippen, Descriptors, Lipinski, rdMolDescriptors
 
-from backend.mas import llm
+from backend.mas import intent, llm
 from backend.mas.gateway import PolicyError, Tool, register
 from backend.molrepr import resolve as resolver
 from backend.molrepr import search, service
@@ -68,6 +68,11 @@ def _needs_query(args: dict) -> None:
 def _needs_prompt(args: dict) -> None:
     if not isinstance(args.get("prompt"), str) or not args["prompt"].strip():
         raise PolicyError("prompt must be a non-empty string")
+
+
+def _needs_request(args: dict) -> None:
+    if not any(isinstance(args.get(k), str) and args[k].strip() for k in ("prompt", "smiles")):
+        raise PolicyError("give a prompt or a drawn structure")
 
 
 def _needs_tree(args: dict) -> None:
@@ -152,7 +157,7 @@ def _learned_model():
     import os
     from backend.retrosynthesis.validation import MicroserviceLearnedForwardModel
     return MicroserviceLearnedForwardModel(
-        os.environ.get("NEOCHEMS_FORWARD_URL", "http://localhost:8435/predict")
+        os.environ.get("VESYN_FORWARD_URL", "http://localhost:8435/predict")
     )
 
 
@@ -193,8 +198,15 @@ def _llm(args: dict) -> dict:
 # --- registry ------------------------------------------------------------
 
 register(Tool(
+    name="prompt.interpret", version=f"rules+{llm.spec()}",
+    description="Read the request: which task, about which molecule. Copies the molecule; never invents a structure.",
+    fn=lambda a: intent.interpret(a.get("prompt") or "", a.get("smiles")),
+    agents=frozenset({"planner", "user"}), station="command_desk", check=_needs_request,
+    summarize=lambda o: {"task": o["task"], "molecule": o["molecule"], "method": o["method"]},
+))
+register(Tool(
     name="pubchem.resolve", version="pug-rest",
-    description="Turn a compound name or SMILES into a canonical structure (PubChem for names).",
+    description="Turn a compound name or SMILES into a canonical structure (names: local ChEMBL, then PubChem).",
     fn=_resolve, agents=frozenset({"planner", "user"}), station="command_desk",
     check=_needs_query,
     summarize=lambda o: {"smiles": o["canonical_smiles"], "source": o["source"]},

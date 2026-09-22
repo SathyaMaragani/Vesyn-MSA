@@ -1,4 +1,4 @@
-// The NeoChems research facility as one three.js scene graph.
+// The Vesyn research facility as one three.js scene graph.
 //
 // The world owns NO data. Every frame it is handed a FacilityState (derived from the real event fold and
 // the evaluator's package) and eases toward it: departments brighten as they work, turn amber while they

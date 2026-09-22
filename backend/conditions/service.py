@@ -38,7 +38,7 @@ from backend.conditions.schema import (
     unavailable,
 )
 
-logger = logging.getLogger("ramchems.conditions")
+logger = logging.getLogger("vesyn.conditions")
 
 MAX_DIRECT = 5
 MAX_SIMILAR = 8
@@ -95,7 +95,7 @@ class ConditionsService:
     @staticmethod
     def _default_provider() -> LiteratureProvider:
         """ORD when it has been ingested, otherwise the honest empty provider."""
-        if os.environ.get("RAMCHEMS_EVIDENCE_PROVIDER", "ord").lower() == "null":
+        if os.environ.get("VESYN_EVIDENCE_PROVIDER", "ord").lower() == "null":
             return NullProvider()
         try:
             from backend.conditions.ord_provider import OrdProvider

@@ -1,6 +1,6 @@
-# NeoChems — multi-agent architecture
+# Vesyn — multi-agent architecture
 
-NeoChems is RamChems (retrosynthesis, search, QSAR, reaction evidence) with a
+Vesyn is RamChems (retrosynthesis, search, QSAR, reaction evidence) with a
 multi-agent layer on top. The chemistry services are unchanged and still
 tested by their own suites; the agent layer is new and lives in
 [`backend/mas/`](../backend/mas).
@@ -32,7 +32,7 @@ tested by their own suites; the agent layer is new and lives in
    chemical validity. RDKit (template reversal), ReactionT5 (forward model)
    and the literature index do. The LLM only writes prose — the critic's
    notes and the final report — from those results, and a run is fully
-   functional with no LLM at all (`NEOCHEMS_LLM=none`).
+   functional with no LLM at all (`VESYN_LLM=none`).
 2. **Nothing is faked for the UI.** The office, graph and feed are pure
    functions of the event stream. Replay re-folds recorded events, so it
    shows exactly what happened.
@@ -107,11 +107,11 @@ the last user message; `threadId` becomes the project id) and streams:
 `RUN_STARTED`, `STATE_SNAPSHOT`, `STEP_STARTED/FINISHED` per task,
 `TOOL_CALL_START/ARGS/END/RESULT` per gateway call, `TEXT_MESSAGE_*` per
 agent-to-agent message, every domain event as `CUSTOM`, and `RUN_FINISHED` (or
-`RUN_ERROR`). Any AG-UI client can drive NeoChems without knowing LangGraph.
+`RUN_ERROR`). Any AG-UI client can drive Vesyn without knowing LangGraph.
 
 ## LLM
 
-`NEOCHEMS_LLM=<provider>:<model>` — `ollama:qwen3:14b` (default, local),
+`VESYN_LLM=<provider>:<model>` — `ollama:qwen3:14b` (default, local),
 `anthropic:claude-sonnet-5` (`ANTHROPIC_API_KEY`), `openai:<model>`
 (`OPENAI_API_KEY`, `OPENAI_BASE_URL` for any compatible server), or `none`.
 Plain `httpx` calls in [`backend/mas/llm.py`](../backend/mas/llm.py); no vendor SDK.
@@ -131,4 +131,4 @@ Plain `httpx` calls in [`backend/mas/llm.py`](../backend/mas/llm.py); no vendor 
 
 ## Running
 
-See the [README](../README.md#neochems-agent-layer). Tests: `pytest tests/test_mas.py`.
+See the [README](../README.md#vesyn-agent-layer). Tests: `pytest tests/test_mas.py`.

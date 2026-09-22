@@ -8,8 +8,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Play } from "lucide-react";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
+import { DrawStructure } from "@/components/chemistry/DrawStructure";
 import { cx } from "@/components/ui/primitives";
 import { useNeo } from "@/lib/store/NeoProvider";
+import { PROMPT_PLACEHOLDER, useRunComposer } from "@/lib/store/useRunComposer";
 
 type Origin = { x: number; y: number };
 const EnterContext = createContext<(origin?: Origin) => void>(() => undefined);
@@ -40,14 +42,11 @@ function Mark() {
 
 export function DashboardFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { health, projects, projectId, selectProject, launch, runId } = useNeo();
-  const [target, setTarget] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { projects, projectId, selectProject, runId } = useNeo();
+  const { prompt, setPrompt, smiles, setSmiles, busy, error, offline, ready, submit } = useRunComposer();
   const [entering, setEntering] = useState<Origin | null>(null);
   const [grown, setGrown] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const offline = health !== "online";
 
   useEffect(() => {
     router.prefetch("/lab");
@@ -75,26 +74,15 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
     [entering, router],
   );
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!target.trim() || busy || offline) return;
-    setBusy(true);
-    setError(null);
-    const r = await launch(target);
-    setBusy(false);
-    if (r.status === "ok") setTarget("");
-    else setError(r.message);
-  }
-
   return (
     <EnterContext.Provider value={enterLab}>
       <div className="min-h-screen bg-nc-base text-nc-hi">
         <header className="sticky top-0 z-40 border-b border-nc-line bg-nc-base/90 backdrop-blur-md">
           <div className="mx-auto flex h-14 max-w-[1760px] items-center gap-5 px-8">
-            <Link href="/" className="nc-focus flex items-center gap-2.5" aria-label="NEOchems — back to the entry">
+            <Link href="/" className="nc-focus flex items-center gap-2.5" aria-label="Vesyn — back to the entry">
               <Mark />
               <span className="font-data text-[15px] font-semibold tracking-[0.2em]">
-                NEO<span className="text-nc-cyan">chems</span>
+                VE<span className="text-nc-cyan">syn</span>
               </span>
             </Link>
             <span className="h-5 w-px bg-nc-line" />
@@ -114,18 +102,19 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
               RUN <span className="text-nc-mid">{runId ? runId.replace(/^run_/, "RUN-").toUpperCase() : "—"}</span>
             </span>
 
-            <form onSubmit={submit} className="ml-auto flex w-[420px] max-w-[36vw] items-center gap-2">
+            <form onSubmit={submit} className="ml-auto flex w-[560px] max-w-[44vw] items-center gap-2">
               <input
                 ref={input}
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
                 disabled={offline}
                 spellCheck={false}
-                placeholder={offline ? "API offline" : "Start a new run — SMILES or compound name"}
-                aria-label="Start a new run: target molecule"
+                placeholder={offline ? "API offline" : smiles ? "What to do with the drawn structure (default: retrosynthesis)" : PROMPT_PLACEHOLDER}
+                aria-label="Ask Vesyn: task and molecule"
                 className="nc-focus h-8 min-w-0 flex-1 border border-nc-line-strong bg-nc-base px-2.5 font-data text-[12px] text-nc-hi placeholder:text-nc-lo disabled:opacity-50"
               />
-              <button type="submit" disabled={offline || busy || !target.trim()} className="nc-focus flex h-8 items-center gap-1.5 border border-nc-cyan/60 px-3 font-data text-[11px] uppercase tracking-wider text-nc-cyan hover:bg-nc-cyan/10 disabled:cursor-not-allowed disabled:border-nc-line disabled:text-nc-lo disabled:hover:bg-transparent">
+              <DrawStructure smiles={smiles} onChange={setSmiles} disabled={offline} />
+              <button type="submit" disabled={!ready} className="nc-focus flex h-8 items-center gap-1.5 border border-nc-cyan/60 px-3 font-data text-[11px] uppercase tracking-wider text-nc-cyan hover:bg-nc-cyan/10 disabled:cursor-not-allowed disabled:border-nc-line disabled:text-nc-lo disabled:hover:bg-transparent">
                 <Play className="h-3 w-3" aria-hidden /> {busy ? "Starting" : "Run"}
               </button>
             </form>
@@ -134,7 +123,7 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="mx-auto flex h-11 max-w-[1760px] items-end justify-between px-8">
-            <nav aria-label="NEOchems" className="flex items-end gap-1">
+            <nav aria-label="Vesyn" className="flex items-end gap-1">
               {NAV.map((t) => {
                 const active = t.href === "/dashboard";
                 const cls = cx("nc-focus border-b-2 px-3.5 pb-2.5 font-data text-[11px] uppercase tracking-[0.16em]", active ? "border-nc-cyan text-nc-hi" : "border-transparent text-nc-lo hover:text-nc-mid");

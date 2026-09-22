@@ -7,7 +7,7 @@
 // here invents a value - fields the events did not carry stay null/absent and
 // the UI renders "not reported".
 import type { AgentStatus, Station } from "../../types/agents.ts";
-import type { AssessmentSummary, NeoEvent, SearchBudget, Severity } from "../../types/events.ts";
+import type { AssessmentSummary, NeoEvent, SearchBudget, Severity, Task } from "../../types/events.ts";
 import type { TargetResolution } from "../../types/chemistry.ts";
 import type { RunParams } from "../../types/runs.ts";
 
@@ -87,6 +87,8 @@ export interface RunView {
   params: RunParams | null;
   error: string | null;
   target: Pick<TargetResolution, "canonical_smiles" | "source" | "matched_name"> | null;
+  /** What the Orchestrator read from the request; null until it has. */
+  task: Task | null;
   agents: Record<string, AgentLive>;
   tasks: Record<string, TaskView>;
   taskOrder: string[];
@@ -113,6 +115,7 @@ export function emptyRun(runId: string | null): RunView {
     params: null,
     error: null,
     target: null,
+    task: null,
     agents: {},
     tasks: {},
     taskOrder: [],
@@ -292,6 +295,7 @@ export function reduceEvent(state: RunView, ev: NeoEvent): RunView {
       return {
         ...s,
         target: { canonical_smiles: ev.data.smiles, source: ev.data.source, matched_name: ev.data.name },
+        task: ev.data.task ?? "retrosynthesis",
       };
     case "ROUTE_GENERATED":
       s = { ...s, latestAttempt: Math.max(s.latestAttempt, ev.data.attempt) };

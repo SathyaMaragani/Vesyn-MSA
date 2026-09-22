@@ -168,7 +168,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
         <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
         <div ref={label} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ opacity: 0 }}>
           <div className="font-data text-[13px] tracking-[0.42em] text-nc-hi">
-            NEO<span className="text-nc-cyan">CHEMS</span>
+            VE<span className="text-nc-cyan">SYN</span>
           </div>
           <div className="h-px w-16 bg-nc-cyan/60" />
           <div data-dest-label className="font-data text-[10px] tracking-[0.4em] text-nc-mid" />

@@ -10,7 +10,7 @@ from typing import Any, Optional
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-logger = logging.getLogger("ramchems.validation")
+logger = logging.getLogger("vesyn.validation")
 
 
 class ValidationStatus(str, enum.Enum):

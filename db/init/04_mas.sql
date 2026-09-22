@@ -1,4 +1,4 @@
--- NeoChems multi-agent layer. Idempotent: runs on first container start AND at
+-- Vesyn multi-agent layer. Idempotent: runs on first container start AND at
 -- every API startup (backend/mas/store.py), so an existing volume picks it up
 -- without being recreated.
 CREATE SCHEMA IF NOT EXISTS mas;

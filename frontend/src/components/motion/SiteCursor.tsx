@@ -32,6 +32,9 @@ function modeOf(el: Element | null): { mode: Mode; label: string } {
  * with speed, swells over links, opens up over the primary control, becomes a caret
  * over text fields and tightens on press. Fine pointers only; the system cursor is
  * hidden only once this one is live, and always stays over form fields.
+ *
+ * Drawn in white with mix-blend-mode: difference, so it is the inverse of whatever
+ * is under it - light over the dark lab, dark over a light panel or molecule.
  */
 export function SiteCursor() {
   const dot = useRef<HTMLDivElement>(null);
@@ -114,7 +117,7 @@ export function SiteCursor() {
         ring.current.style.height = `${s}px`;
         ring.current.style.opacity = shown ? String(p.alpha) : "0";
         ring.current.style.borderRadius = mode === "text" ? "1px" : "9999px";
-        ring.current.style.background = mode === "enter" ? "rgb(143 175 154 / 0.08)" : "transparent";
+        ring.current.style.background = mode === "enter" ? "rgb(255 255 255 / 0.08)" : "transparent";
         ring.current.style.transform = `translate(${p.rx - s / 2}px, ${p.ry - s / 2}px) rotate(${p.angle}rad) scale(${1 + p.stretch}, ${1 - p.stretch * 0.35})`;
       }
       if (label.current) label.current.style.transform = `translate(${p.rx + p.size / 2 + 10}px, ${p.ry - 6}px)`;
@@ -136,19 +139,19 @@ export function SiteCursor() {
   }, []);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[100]">
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[100] mix-blend-difference">
       <div
         ref={ring}
-        className="absolute left-0 top-0 border border-nc-cyan will-change-transform"
-        style={{ opacity: 0, width: RING.idle.size, height: RING.idle.size, borderRadius: 9999, boxShadow: "0 0 18px -6px rgb(143 175 154 / 0.6)" }}
+        className="absolute left-0 top-0 border border-white will-change-transform"
+        style={{ opacity: 0, width: RING.idle.size, height: RING.idle.size, borderRadius: 9999 }}
       />
       <div ref={cross} className="absolute left-0 top-0 h-6 w-6 will-change-transform" style={{ opacity: 0 }}>
-        <svg viewBox="0 0 24 24" className="h-full w-full text-nc-hi" fill="none">
+        <svg viewBox="0 0 24 24" className="h-full w-full text-white" fill="none">
           <path d="M12 1v6M12 17v6M1 12h6M17 12h6" stroke="currentColor" strokeWidth="1" strokeOpacity="0.9" />
         </svg>
       </div>
-      <div ref={dot} className="absolute left-0 top-0 h-[5px] w-[5px] rounded-full bg-nc-hi will-change-transform" style={{ opacity: 0 }} />
-      <div ref={label} className="absolute left-0 top-0 whitespace-nowrap font-data text-[9px] tracking-[0.3em] text-nc-cyan" />
+      <div ref={dot} className="absolute left-0 top-0 h-[5px] w-[5px] rounded-full bg-white will-change-transform" style={{ opacity: 0 }} />
+      <div ref={label} className="absolute left-0 top-0 whitespace-nowrap font-data text-[9px] tracking-[0.3em] text-white" />
     </div>
   );
 }

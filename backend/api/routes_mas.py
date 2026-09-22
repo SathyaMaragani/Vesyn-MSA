@@ -1,4 +1,4 @@
-"""NeoChems multi-agent API: projects, runs, agents, tasks, tools, audit, events.
+"""Vesyn multi-agent API: projects, runs, agents, tasks, tools, audit, events.
 
     POST /api/projects              create a project (and, by default, start a run)
     POST /api/projects/{id}/runs    run the agent team again
@@ -17,7 +17,7 @@ from typing import Optional
 import psycopg
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import AliasChoices, BaseModel, Field, ValidationError, model_validator
 
 from backend.mas import agents, agui, events, gateway, graph, llm, store
 from backend.molrepr import service as molservice
@@ -28,7 +28,7 @@ from backend.retrosynthesis.service import (
     _enrich_with_assessment,
 )
 
-router = APIRouter(tags=["neochems"])
+router = APIRouter(tags=["vesyn"])
 
 
 class RunParams(BaseModel):
@@ -40,10 +40,21 @@ class RunParams(BaseModel):
 
 
 class ProjectCreate(RunParams):
-    target: str = Field(..., min_length=1, description="Target molecule: SMILES or a compound name")
-    name: Optional[str] = Field(None, description="Defaults to the target")
-    goal: str = "Find a feasible synthesis route"
+    prompt: str = Field(
+        "", validation_alias=AliasChoices("prompt", "target"),
+        description="What to do, in plain words ('solubility of aspirin'), or just a SMILES / name",
+    )
+    smiles: Optional[str] = Field(
+        None, description="Structure drawn in the editor; wins over any molecule named in the prompt")
+    name: Optional[str] = Field(None, description="Defaults to the prompt")
+    goal: Optional[str] = Field(None, description="Defaults to the prompt")
     autostart: bool = True
+
+    @model_validator(mode="after")
+    def _something_to_do(self):
+        if not (self.prompt.strip() or (self.smiles or "").strip()):
+            raise ValueError("give a prompt or draw a structure")
+        return self
 
 
 class RetroRequest(RunParams):
@@ -69,11 +80,14 @@ def _project(project_id: str) -> dict:
 
 @router.post("/api/projects", status_code=201)
 async def create_project(body: ProjectCreate) -> dict:
+    smiles = (body.smiles or "").strip() or None
+    request = body.prompt.strip() or smiles
     project = {
         "id": store.new_id("proj"),
-        "name": body.name or body.target,
-        "goal": body.goal,
-        "target_query": body.target.strip(),
+        "name": body.name or request[:120],
+        "goal": body.goal or request,
+        "target_query": request,
+        "target_smiles": smiles,
     }
     await asyncio.to_thread(store.insert, "mas.projects", project)
     run = None
@@ -158,7 +172,7 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest) -> dict:
             run_context = f"\nRecent events for this agent in run {body.run_id}:\n" + "\n".join(event_summaries)
 
     system_prompt = (
-        f"You are {name} ({agent_id}) in the NeoChems multi-agent retrosynthesis and discovery platform.\n"
+        f"You are {name} ({agent_id}) in the Vesyn multi-agent retrosynthesis and discovery platform.\n"
         f"Specialty: {role_desc}\n"
         f"Lab Station: {station}\n"
         f"Tools you are authorized to invoke: {tools_summary}.\n"
@@ -186,7 +200,7 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest) -> dict:
             f"• **Station:** `{station}`\n"
             f"• **Status:** `{current_state.get('status', 'IDLE')}`\n"
             f"• **Authorized Tools:** {tools_summary}\n\n"
-            f"As the {name}, I work within the NeoChems multi-agent LangGraph workflow. "
+            f"As the {name}, I work within the Vesyn multi-agent LangGraph workflow. "
             f"When an objective is launched, I execute my assigned tasks using empirical models, RDKit, "
             f"and literature evidence.\n\n"
             f"*(LLM narration offline: {err})*"
@@ -295,8 +309,13 @@ def list_events(
 
 
 @router.websocket("/ws/events")
+@router.websocket("/ws/events/{run_id}/{after}")
 async def ws_events(ws: WebSocket, run_id: Optional[str] = None, after: Optional[int] = None):
-    """Live event tail. Pass ?after=<seq> to replay history first (no gaps, no duplicates)."""
+    """Live event tail. Pass ?after=<seq> to replay history first (no gaps, no duplicates).
+
+    The path form carries the same two values for proxies that drop a WebSocket's query
+    string (Tailscale Funnel, tailscale/tailscale#18651); the frontend uses it.
+    """
     await ws.accept()
     queue = events.subscribe()  # before the replay, so nothing falls in between
 
@@ -334,7 +353,7 @@ async def agui_run(body: dict):
     """AG-UI endpoint: RunAgentInput in, an SSE stream of AG-UI events out.
 
     The target comes from state.target, else the last user message. threadId
-    maps to a NeoChems project, so a thread can be re-run.
+    maps to a Vesyn project, so a thread can be re-run.
     """
     state = body.get("state") or {}
     query = state.get("target")
@@ -351,7 +370,7 @@ async def agui_run(body: dict):
     thread_id = body.get("threadId") or store.new_id("proj")
     project = await asyncio.to_thread(store.one, "SELECT * FROM mas.projects WHERE id = %s", thread_id)
     if project is None:
-        project = {"id": thread_id, "name": query, "goal": "Find a feasible synthesis route",
+        project = {"id": thread_id, "name": query[:120], "goal": query,
                    "target_query": query}
         await asyncio.to_thread(store.insert, "mas.projects", project)
 

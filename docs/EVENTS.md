@@ -38,14 +38,14 @@ slightly out of order over the socket — sort by `seq`.
 | `TOOL_COMPLETED` | caller | `call_id, tool, version, duration_ms, summary` |
 | `TOOL_FAILED` | caller | `call_id, tool, status` (`DENIED` by policy, or `FAILED`), `error` |
 | `MESSAGE_SENT` | sender | `to` (agent id), `text` |
-| `MOLECULE_RECEIVED` | planner | `smiles, query, name, source` (`smiles`/`pubchem`) |
+| `MOLECULE_RECEIVED` | planner | `smiles, query, name, source` (`smiles`/`chembl`/`pubchem`), `task` (retrosynthesis, profile, properties, solubility, analogues), `prompt` (what the user typed) |
 | `ROUTE_GENERATED` | retro | `route_id, attempt, steps, state_score` |
 | `VALIDATION_STARTED` | validator | `route_id, attempt, steps` |
 | `VALIDATION_COMPLETED` | validator | `route_id, attempt, assessment, label, signals{tool: summary}` |
 | `CRITIQUE_CREATED` | critic | `route_id, counts{high,medium,low,info}, headline, strengths` |
 | `REPLAN_STARTED` | replanner | `reason, previous{attempt,iteration_limit,top_n}, next{…}` |
 | `REPLAN_COMPLETED` | replanner | `next` |
-| `PROJECT_COMPLETED` | — | `project_id, recommended_route_id, recommendation, routes` |
+| `PROJECT_COMPLETED` | — | `project_id, task, recommended_route_id, recommendation, routes` (a null route is only a miss when `task` is retrosynthesis) |
 | `PROJECT_FAILED` | — | `project_id, error` |
 
 Full outputs never ride on events — fetch them from `/api/audit/{call_id}` or
@@ -60,7 +60,7 @@ CRITICIZING, COMPLETED, FAILED`. Every agent returns to `IDLE` after a run.
 
 | station | home of | tools there |
 |---|---|---|
-| `command_desk` | planner, replanner | `pubchem.resolve` |
+| `command_desk` | planner, replanner | `prompt.interpret`, `pubchem.resolve` |
 | `library` | research | `chembl.similarity`, `qsar.solubility`, `ord.evidence` |
 | `chemistry_workstation` | retro | `aizynthfinder.plan`, `rdkit.represent` |
 | `validation_station` | validator | `rdkit.template_validation`, `reactiont5.forward_validation` |

@@ -1,6 +1,6 @@
 """LLM provider layer. Agents never import a vendor SDK.
 
-Pick the provider with NEOCHEMS_LLM="<provider>:<model>":
+Pick the provider with VESYN_LLM="<provider>:<model>":
 
     ollama:qwen3:14b              (default - local, no key)
     anthropic:claude-sonnet-5     needs ANTHROPIC_API_KEY
@@ -18,31 +18,32 @@ import os
 
 import httpx
 
-TIMEOUT = httpx.Timeout(8.0, connect=2.0)
-
 
 class LLMUnavailable(RuntimeError):
     pass
 
 
 def spec() -> str:
-    return os.environ.get("NEOCHEMS_LLM", "ollama:qwen3:14b")
+    return os.environ.get("VESYN_LLM", "ollama:qwen3:14b")
 
 
-def generate(system: str, prompt: str, max_tokens: int = 700) -> dict:
+def generate(system: str, prompt: str, max_tokens: int = 700, timeout: float = 60.0) -> dict:
+    # A missing server fails in 2 s (connect); `timeout` only bounds a slow local model writing.
     provider, _, model = spec().partition(":")
     if provider == "none":
-        raise LLMUnavailable("LLM narration disabled (NEOCHEMS_LLM=none)")
+        raise LLMUnavailable("LLM narration disabled (VESYN_LLM=none)")
     if provider not in _PROVIDERS:
         raise LLMUnavailable(f"unknown LLM provider {provider!r}")
     try:
-        text = _PROVIDERS[provider](model, system, prompt, max_tokens)
+        text = _PROVIDERS[provider](model, system, prompt, max_tokens,
+                                   httpx.Timeout(timeout, connect=2.0))
     except httpx.HTTPError as err:
         raise LLMUnavailable(f"{provider} unreachable: {err}") from err
     return {"provider": provider, "model": model, "text": text.strip()}
 
 
-def _anthropic(model: str, system: str, prompt: str, max_tokens: int) -> str:
+def _anthropic(model: str, system: str, prompt: str, max_tokens: int,
+               timeout: httpx.Timeout) -> str:
     key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:
         raise LLMUnavailable("ANTHROPIC_API_KEY is not set")
@@ -56,13 +57,14 @@ def _anthropic(model: str, system: str, prompt: str, max_tokens: int) -> str:
             "system": system,
             "messages": [{"role": "user", "content": prompt}],
         },
-        timeout=TIMEOUT,
+        timeout=timeout,
     )
     r.raise_for_status()
     return "".join(b["text"] for b in r.json()["content"] if b["type"] == "text")
 
 
-def _openai(model: str, system: str, prompt: str, max_tokens: int) -> str:
+def _openai(model: str, system: str, prompt: str, max_tokens: int,
+            timeout: httpx.Timeout) -> str:
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
         raise LLMUnavailable("OPENAI_API_KEY is not set")
@@ -78,13 +80,14 @@ def _openai(model: str, system: str, prompt: str, max_tokens: int) -> str:
                 {"role": "user", "content": prompt},
             ],
         },
-        timeout=TIMEOUT,
+        timeout=timeout,
     )
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"] or ""
 
 
-def _ollama(model: str, system: str, prompt: str, max_tokens: int) -> str:
+def _ollama(model: str, system: str, prompt: str, max_tokens: int,
+            timeout: httpx.Timeout) -> str:
     base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
     if not base.startswith("http"):
         base = f"http://{base}"
@@ -101,7 +104,7 @@ def _ollama(model: str, system: str, prompt: str, max_tokens: int) -> str:
                 {"role": "user", "content": prompt},
             ],
         },
-        timeout=TIMEOUT,
+        timeout=timeout,
     )
     r.raise_for_status()
     return r.json()["message"]["content"]
