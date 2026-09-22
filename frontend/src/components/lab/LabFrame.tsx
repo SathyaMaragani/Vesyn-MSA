@@ -11,6 +11,7 @@ import { AlertBanner } from "./AlertBanner";
 import { FlightRecorder } from "./FlightRecorder";
 import { LabTopBar } from "./LabTopBar";
 import { MoleculePanel } from "./MoleculePanel";
+import { SimulatedNotice } from "@/components/layout/ConnectionPill";
 import { StateNotice, cx } from "@/components/ui/primitives";
 import { LabUIProvider, useLabUI } from "@/lib/store/LabUI";
 import { useNeo } from "@/lib/store/NeoProvider";
@@ -45,7 +46,7 @@ export function LabFrame({ children }: { children: React.ReactNode }) {
 
 function LabLayer({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { health, runId, projects, cursor, setCursor, liveRun } = useNeo();
+  const { health, runId, projects, cursor, setCursor, liveRun, demo } = useNeo();
   const { hudHidden, toggleHud, arrived } = useLabUI();
   const sheetTitle = TITLES[pathname] ?? null;
 
@@ -73,17 +74,20 @@ function LabLayer({ children }: { children: React.ReactNode }) {
         <AlertBanner />
         <FlightRecorder />
 
-        {cursor !== null && (
-          <div role="status" className="pointer-events-auto absolute left-1/2 top-[92px] z-30 flex -translate-x-1/2 items-center gap-4 border border-nc-warn/60 bg-nc-base/90 px-4 py-2 backdrop-blur-md">
-            <span className="font-data text-[11px] tracking-[0.2em] text-nc-warn">REPLAY</span>
-            <span className="text-[12px] text-nc-mid">Showing the run as it stood after event #{cursor}. Live is at #{liveRun.lastSeq}.</span>
-            <button type="button" onClick={() => setCursor(null)} className="nc-focus border border-nc-cyan/60 px-2.5 py-1 font-data text-[10px] uppercase tracking-wider text-nc-cyan hover:bg-nc-cyan/10">
-              Return to live
-            </button>
-          </div>
-        )}
+        <div className="pointer-events-none absolute left-1/2 top-[99px] z-30 flex w-max max-w-[min(900px,calc(100%-2rem))] -translate-x-1/2 flex-col items-center gap-2">
+          <SimulatedNotice className="pointer-events-auto" />
+          {cursor !== null && (
+            <div role="status" className="pointer-events-auto flex items-center gap-4 border border-nc-warn/60 bg-nc-base/90 px-4 py-2 backdrop-blur-md">
+              <span className="font-data text-[11px] tracking-[0.2em] text-nc-warn">REPLAY</span>
+              <span className="text-[12px] text-nc-mid">Showing the run as it stood after event #{cursor}. Live is at #{liveRun.lastSeq}.</span>
+              <button type="button" onClick={() => setCursor(null)} className="nc-focus border border-nc-cyan/60 px-2.5 py-1 font-data text-[10px] uppercase tracking-wider text-nc-cyan hover:bg-nc-cyan/10">
+                Return to live
+              </button>
+            </div>
+          )}
+        </div>
 
-        {health === "offline" && (
+        {health === "offline" && !demo && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-nc-base/55">
             <div className="border border-nc-bad/50 bg-nc-base/90">
               <StateNotice

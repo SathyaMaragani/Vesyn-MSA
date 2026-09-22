@@ -22,8 +22,14 @@ function clock(ts: string, t0: number): string {
 }
 
 function CallDetail({ callId }: { callId: string }) {
+  const { demo } = useNeo();
   const [call, setCall] = useState<LoadState<AuditCall>>({ state: "loading" });
   useEffect(() => {
+    if (demo) {
+      const recorded = demo.auditCalls[callId];
+      setCall(recorded ? { state: "ok", data: recorded } : { state: "empty" });
+      return;
+    }
     let live = true;
     setCall({ state: "loading" });
     void getAuditCall(callId).then((r) => {
@@ -35,7 +41,7 @@ function CallDetail({ callId }: { callId: string }) {
     return () => {
       live = false;
     };
-  }, [callId]);
+  }, [callId, demo]);
 
   if (call.state === "loading") return <div className="font-data text-[11px] text-nc-lo">loading audit record…</div>;
   if (call.state === "offline") return <div className="font-data text-[11px] text-nc-bad">API OFFLINE</div>;
@@ -64,7 +70,7 @@ function CallDetail({ callId }: { callId: string }) {
 
 export function AuditWorkspace() {
   // the recorder is always the COMPLETE live record - replay moves a cursor over it, it never shortens it
-  const { liveRun: run, runId } = useNeo();
+  const { liveRun: run, runId, demo } = useNeo();
   const { focusAgent } = useLabUI();
   const [showChurn, setShowChurn] = useState(false);
   const [selSeq, setSelSeq] = useState<number | null>(null);
@@ -85,6 +91,10 @@ export function AuditWorkspace() {
   const completedCalls = run.callOrder.filter((id) => run.calls[id]?.status !== "RUNNING" && run.calls[id]?.status !== "REQUESTED").length;
   useEffect(() => {
     if (!runId) return;
+    if (demo) {
+      setAudit(demo.audit.length ? { state: "ok", data: demo.audit } : { state: "empty" });
+      return;
+    }
     let live = true;
     const timer = setTimeout(() => {
       void listAudit(runId).then((r) => {
@@ -98,7 +108,7 @@ export function AuditWorkspace() {
       live = false;
       clearTimeout(timer);
     };
-  }, [runId, completedCalls]);
+  }, [runId, completedCalls, demo]);
 
   const counts = { failed: 0, denied: 0 };
   if (audit.state === "ok") for (const a of audit.data) a.status === "FAILED" ? counts.failed++ : a.status === "DENIED" ? counts.denied++ : 0;

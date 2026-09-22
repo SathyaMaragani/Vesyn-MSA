@@ -7,7 +7,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Play } from "lucide-react";
-import { ConnectionPill } from "@/components/layout/ConnectionPill";
+import { ConnectionPill, SimulatedNotice } from "@/components/layout/ConnectionPill";
 import { DrawStructure } from "@/components/chemistry/DrawStructure";
 import { cx } from "@/components/ui/primitives";
 import { useNeo } from "@/lib/store/NeoProvider";
@@ -142,7 +142,10 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1760px] px-8 pb-24 pt-8">{children}</main>
+        <main className="mx-auto max-w-[1760px] px-8 pb-24 pt-8">
+          <SimulatedNotice className="mb-6" />
+          {children}
+        </main>
       </div>
 
       {entering && (

@@ -194,7 +194,7 @@ Every department's open side faces the core; walkways run between; overhead cabl
 ## Rules the UI enforces
 
 * A value the backend did not return renders **not reported**; never a dash, default or placeholder.
-* API unreachable → **API OFFLINE**; agents show *unknown*; nothing is simulated.
+* API unreachable → **API OFFLINE**; agents show *unknown*. The one exception: when the API has not answered since the page loaded, a recorded run (`public/demo/run.json`) is shown, labelled **SIMULATED**.
 * Evidence keeps its level (direct / similar / AI-predicted / no verified evidence) and its source fields; a similar precedent is never labelled direct. A DOI is shown with a note that it may belong to the dataset's curating paper.
 * The route score is labelled a ranking heuristic, not a feasibility or yield probability.
 * The evaluator refusing to recommend a route is a finding, shown as such.

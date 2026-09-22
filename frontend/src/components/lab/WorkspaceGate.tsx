@@ -6,8 +6,8 @@ import { useNeo } from "@/lib/store/NeoProvider";
 
 /** Every workspace starts here: offline and no-run are handled once, honestly. */
 export function WorkspaceGate({ children }: { children: React.ReactNode }) {
-  const { health, runId, runRecord } = useNeo();
-  if (health === "offline") {
+  const { health, runId, runRecord, demo } = useNeo();
+  if (health === "offline" && !demo) {
     return <StateNotice kind="offline" detail="Nothing is shown until the backend responds. No data is simulated." />;
   }
   if (!runId) {

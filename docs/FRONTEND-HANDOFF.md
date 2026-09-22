@@ -4,7 +4,7 @@ Written for the next developer picking up the frontend. It says what exists, how
 
 ## Frontend completed
 
-A Next.js 14 (App Router) + React 18 + TypeScript + Tailwind frontend in `frontend/`, replacing the earlier single-page lab UI. Three.js is used directly (no React Three Fiber). It has four modes, each its own page, and all of them read the existing Vesyn API and event stream; nothing is mocked.
+A Next.js 14 (App Router) + React 18 + TypeScript + Tailwind frontend in `frontend/`, replacing the earlier single-page lab UI. Three.js is used directly (no React Three Fiber). It has four modes, each its own page, and all of them read the existing Vesyn API and event stream. The one exception: with the API offline since the page loaded, the UI shows one recorded run (`public/demo/run.json`), labelled **SIMULATED** in a banner and the connection pill.
 
 | Mode | Purpose |
 | --- | --- |
@@ -53,7 +53,7 @@ frontend/src/
 frontend/tests/         Node built-in test runner, pure logic only
 ```
 
-Design rules that hold across the app: a value the backend did not return reads **NOT REPORTED**; an unreachable API reads **API OFFLINE**; nothing is simulated. The palette (graphite, warm ivory, mineral green, sage, oxidized copper, amber) lives in `styles/app.css`; `nc-cyan` is the historical token name and is actually sage.
+Design rules that hold across the app: a value the backend did not return reads **NOT REPORTED**; an unreachable API reads **API OFFLINE**; nothing is simulated except the labelled recording described under Backend integration. The palette (graphite, warm ivory, mineral green, sage, oxidized copper, amber) lives in `styles/app.css`; `nc-cyan` is the historical token name and is actually sage.
 
 ## Backend integration
 
@@ -76,6 +76,8 @@ The API base is `NEXT_PUBLIC_API_URL` (default `http://localhost:8436`); the Web
 **Event stream:** `WS /ws/events?run_id=<id>&after=<seq>`. The server replays persisted events after `seq`, then tails live ones. The client reconnects and resumes slightly before the highest `seq` it saw, because `seq` is assigned at insert and concurrent agents can deliver out of order.
 
 **Event-driven UI:** `lib/events/fold.ts` is the only place events become state. It is pure and idempotent, so duplicates and reordering converge to the same run view. The WebSocket is not trusted alone: the REST `/api/events` reconcile runs every 3 s during a run and once at the end. From the folded run come the agent views, the workflow stages, the feed, the alerts, the route and evidence figures. `lib/dashboard/model.ts` derives the whole dashboard from that fold, the evaluator's package and the service probes.
+
+**Offline: the recorded run.** If `/health` fails before the API has ever answered on that page, `NeoProvider` loads `public/demo/run.json` (one finished run exactly as the API returned it: project, run record, events, roster, tools, graph, audit log) and exposes it as `demo`. Every view renders it through the same fold; the dashboard and lab show a SIMULATED banner and the pill reads SIMULATED · API OFFLINE. What is still reported truthfully: API health, the services panel (all OFFLINE), the entry loader's checks, and the run bars stay disabled. When `/health` answers, the recording is dropped and live data loads. A drop mid-session does not switch to it. Re-record with `node scripts/record-demo.mjs <run_id>` against a running API; `tests/demo.test.ts` checks the file still folds to a finished run.
 
 **Data facts worth knowing:**
 - There is no `VALIDATION_FAILED` event. A failed validation is `VALIDATION_COMPLETED` with assessment `REVIEW_REQUIRED`, followed by `REPLAN_STARTED`.

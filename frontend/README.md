@@ -2,7 +2,9 @@
 
 Next.js 14 (App Router, React 18, TypeScript, Tailwind, three.js) for the Vesyn
 multi-agent chemistry platform. It shows only what the backend reports: with the
-API down every page says **API OFFLINE**, and nothing is simulated.
+API down every page says **API OFFLINE**. If the API has not answered since the page
+loaded, the pages show one recorded run (`public/demo/run.json`, re-record with
+`node scripts/record-demo.mjs <run_id>`), labelled **SIMULATED** throughout.
 
 | Route | What |
 |---|---|
