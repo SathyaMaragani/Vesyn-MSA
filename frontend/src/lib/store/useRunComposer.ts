@@ -11,8 +11,9 @@ export function useRunComposer() {
   const [smiles, setSmiles] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const offline = health !== "online";
-  const ready = !offline && !busy && (prompt.trim() !== "" || smiles !== "");
+  // Offline only once the check has failed: while it is still pending the API is not known to be down.
+  const offline = health === "offline";
+  const ready = health === "online" && !busy && (prompt.trim() !== "" || smiles !== "");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
