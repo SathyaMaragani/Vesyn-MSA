@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 196" width="1280" height="196" role="img" aria-label="Four principles: tools decide what is true, nothing is faked, everything is audited, degrade rather than fail">
+<rect width="1280" height="196" fill="#10110F"/>
+<rect x="48" y="18" width="281" height="160" rx="10" fill="#191B18" stroke="#363730"/>
+<g transform="translate(70 42) scale(1.08333)" fill="none" stroke="#8FAF9A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6M10 2v7L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 9V2" /><path d="M7.5 15h9"/></g>
+<text x="70" y="104" font-family="'Segoe UI Semibold','Segoe UI',Inter,system-ui,sans-serif" font-size="15" fill="#E8E4D8">Tools decide what is true</text>
+<text x="70" y="128" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">RDKit, a forward model and the</text>
+<text x="70" y="145" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">literature index judge chemistry.</text>
+<text x="70" y="162" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">The LLM only writes prose.</text>
+<rect x="349" y="18" width="281" height="160" rx="10" fill="#191B18" stroke="#363730"/>
+<g transform="translate(371 42) scale(1.08333)" fill="none" stroke="#B9C98A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3.2"/></g>
+<text x="371" y="104" font-family="'Segoe UI Semibold','Segoe UI',Inter,system-ui,sans-serif" font-size="15" fill="#E8E4D8">Nothing is faked</text>
+<text x="371" y="128" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">Every panel is a fold of the event</text>
+<text x="371" y="145" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">stream. A value the backend did</text>
+<text x="371" y="162" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">not return reads NOT REPORTED.</text>
+<rect x="650" y="18" width="281" height="160" rx="10" fill="#191B18" stroke="#363730"/>
+<g transform="translate(672 42) scale(1.08333)" fill="none" stroke="#C9C1A8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h13a2 2 0 0 1 2 2v16H6a2 2 0 0 1-2-2V3Z"/><path d="M8 8h7M8 12h7M8 16h4"/></g>
+<text x="672" y="104" font-family="'Segoe UI Semibold','Segoe UI',Inter,system-ui,sans-serif" font-size="15" fill="#E8E4D8">Everything is audited</text>
+<text x="672" y="128" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">Who called which tool and why,</text>
+<text x="672" y="145" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">with full input and output —</text>
+<text x="672" y="162" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">written before the call runs.</text>
+<rect x="951" y="18" width="281" height="160" rx="10" fill="#191B18" stroke="#363730"/>
+<g transform="translate(973 42) scale(1.08333)" fill="none" stroke="#D6A45B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V14M10 20V9M16 20v-6"/><path d="M22 20V4" opacity="0.35"/></g>
+<text x="973" y="104" font-family="'Segoe UI Semibold','Segoe UI',Inter,system-ui,sans-serif" font-size="15" fill="#E8E4D8">Degrade, don't fail</text>
+<text x="973" y="128" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">A missing service downgrades the</text>
+<text x="973" y="145" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">signal and says so in the critique,</text>
+<text x="973" y="162" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11" fill="#A9A79C">instead of failing the run.</text>
+</svg>

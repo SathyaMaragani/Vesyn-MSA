@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 430" width="1280" height="430" role="img" aria-label="How a Vesyn run works: orchestrator, then research and retrosynthesis in parallel, validation, critic, evaluator, with a replanner loop back to the search">
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#545449"/>
+    </marker>
+    <marker id="head-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#D6A45B"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="430" fill="#10110F"/>
+
+  <text x="48" y="44" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="12" letter-spacing="4" fill="#7A786E">ONE RUN, END TO END</text>
+
+  <g fill="none" stroke="#545449" stroke-width="1.6" marker-end="url(#head)">
+    <path d="M188 148 H224"/>
+    <path d="M396 132 H414 V96 H436"/>
+    <path d="M396 164 H414 V200 H436"/>
+    <path d="M690 96 H708 V148 H722"/>
+    <path d="M690 200 H708 V148 H722"/>
+    <path d="M882 148 H914"/>
+    <path d="M1068 148 H1100"/>
+  </g>
+
+  <path d="M802 186 V288 H565 V242" fill="none" stroke="#D6A45B" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#head-amber)"/>
+  <text x="684" y="310" text-anchor="middle" font-family="Consolas,'Cascadia Mono','JetBrains Mono',monospace" font-size="11.5" letter-spacing="0.8" fill="#D6A45B">no usable route → widen the search, up to 3×</text>
+
+  <g font-family="'Segoe UI Semibold','Segoe UI',Inter,system-ui,sans-serif" font-size="15" fill="#E8E4D8">
+    <rect x="48" y="120" width="140" height="56" rx="28" fill="#191B18" stroke="#545449"/>
+    <text x="118" y="144" text-anchor="middle" font-size="12.5" fill="#C9C1A8">prompt and/or</text>
+    <text x="118" y="162" text-anchor="middle" font-size="12.5" fill="#C9C1A8">structure</text>
+
+    <rect x="224" y="110" width="172" height="76" rx="8" fill="#23241F" stroke="#545449"/>
+    <circle cx="248" cy="134" r="5" fill="#8FAF9A"/>
+    <text x="264" y="139">Orchestrator</text>
+    <text x="240" y="165" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">resolve target · plan</text>
+
+    <rect x="440" y="58" width="250" height="76" rx="8" fill="#23241F" stroke="#545449"/>
+    <circle cx="464" cy="82" r="5" fill="#8FAF9A"/>
+    <text x="480" y="87">Research</text>
+    <text x="456" y="113" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">descriptors, solubility, analogues</text>
+
+    <rect x="440" y="162" width="250" height="80" rx="8" fill="#23241F" stroke="#545449"/>
+    <circle cx="464" cy="186" r="5" fill="#8FAF9A"/>
+    <text x="480" y="191">Retrosynthesis</text>
+    <text x="456" y="217" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">AiZynthFinder search</text>
+
+    <rect x="722" y="110" width="160" height="76" rx="8" fill="#23241F" stroke="#B9C98A" stroke-opacity="0.45"/>
+    <circle cx="746" cy="134" r="5" fill="#B9C98A"/>
+    <text x="762" y="139">Validation</text>
+    <text x="738" y="165" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">every step, 3 ways</text>
+
+    <rect x="914" y="110" width="154" height="76" rx="8" fill="#23241F" stroke="#545449"/>
+    <circle cx="938" cy="134" r="5" fill="#8FAF9A"/>
+    <text x="954" y="139">Critic</text>
+    <text x="930" y="165" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">issues by severity</text>
+
+    <rect x="1100" y="110" width="150" height="76" rx="8" fill="#23241F" stroke="#545449"/>
+    <circle cx="1124" cy="134" r="5" fill="#8FAF9A"/>
+    <text x="1140" y="139">Evaluator</text>
+    <text x="1116" y="165" font-size="11" font-family="Consolas,monospace" fill="#A9A79C">rank · report</text>
+  </g>
+
+  <text x="565" y="152" text-anchor="middle" font-family="Consolas,'Cascadia Mono',monospace" font-size="11" letter-spacing="1.4" fill="#7A786E">in parallel</text>
+
+  <rect x="48" y="330" width="1202" height="68" rx="8" fill="#191B18" stroke="#363730"/>
+  <text x="72" y="357" font-family="Consolas,'Cascadia Mono',monospace" font-size="11" letter-spacing="3" fill="#8FAF9A">EVERY TOOL CALL</text>
+  <g font-family="Consolas,'Cascadia Mono',monospace" font-size="12.5" fill="#C9C1A8">
+    <text x="72" y="383">policy check</text>
+    <text x="190" y="383" fill="#545449">→</text>
+    <text x="214" y="383">audit row written</text>
+    <text x="368" y="383" fill="#545449">→</text>
+    <text x="392" y="383">run</text>
+    <text x="430" y="383" fill="#545449">→</text>
+    <text x="454" y="383">audit row closed</text>
+    <text x="608" y="383" fill="#545449">→</text>
+    <text x="632" y="383">event streamed</text>
+  </g>
+  <text x="1226" y="383" text-anchor="end" font-family="Consolas,'Cascadia Mono',monospace" font-size="11.5" fill="#7A786E">a refused call is audited too</text>
+</svg>
