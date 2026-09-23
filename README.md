@@ -1,212 +1,290 @@
-# Vesyn
+<h1 align="center">Vesyn</h1>
 
-RamChems with a multi-agent layer on top: a LangGraph team (orchestrator,
-research, retrosynthesis, validation, critic, replanner, evaluator) that plans,
-validates and critiques synthesis routes using the RamChems services as
-governed tools, with every action streamed as an event to a live 3D office.
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Event contract:
-[docs/EVENTS.md](docs/EVENTS.md). Frontend: [docs/FRONTEND.md](docs/FRONTEND.md).
-Where this is going: [docs/product-plan.md](docs/product-plan.md).
+<p align="center">
+  <strong>Ask a chemistry question in plain words. A team of agents answers it with real tools, and shows its work.</strong>
+</p>
 
-> **Building the frontend?** Start with
-> **[docs/FRONTEND-HANDOFF.md](docs/FRONTEND-HANDOFF.md)**. The backend is done
-> and tested; the UI shell exists but is not yet connected to it.
+<p align="center">
+  <img alt="Python 3.11" src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white">
+  <img alt="LangGraph" src="https://img.shields.io/badge/LangGraph-1.2-1C3C3C">
+  <img alt="Next.js 14" src="https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white">
+  <img alt="Postgres with the RDKit cartridge" src="https://img.shields.io/badge/Postgres-RDKit%20cartridge-4169E1?logo=postgresql&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-272%20backend%20%C2%B7%20170%20frontend-2ea44f">
+</p>
 
-## Vesyn agent layer
+Type *"plan a synthesis of aspirin"*, *"solubility of ibuprofen"* or *"drugs similar to caffeine"* — or draw the
+structure. An orchestrator works out the task and the molecule, and runs only the agents that task needs.
+Specialist agents call real chemistry tools: AiZynthFinder for retrosynthesis, RDKit for structure and template
+checks, a ReactionT5 forward model, a literature index built from the Open Reaction Database and USPTO patents,
+a QSAR solubility model, ChEMBL and PubChem. A validator checks every step, a critic and an evaluator rank what
+survived and write the report.
 
-Standalone: its own ports (API 8436, UI 3100, ReactionT5 8435), its own Postgres
-(`vesyn_db` on 5437, volume `vesyn_pgdata`), its own model data (`data/external`,
-gitignored) and its own ReactionT5 venv (`venv-t5`, gitignored). RamChems can run
-beside it untouched.
+Every tool call is policy-checked, recorded and streamed as an event, so the interface can show a run as it
+happens — and replay it afterwards, exactly as it ran.
 
-Ask in plain words - "plan a synthesis of aspirin", "solubility of ibuprofen",
-"drugs similar to caffeine" - or draw the structure in the editor. The
-Orchestrator works out the task (retrosynthesis, properties, solubility,
-analogues or a full profile) and the molecule, and runs only the agents needed.
+<p align="center">
+  <img alt="The Vesyn dashboard: current run, agent workflow and live event feed" src="docs/images/dashboard.png" width="900">
+</p>
 
-```bash
-docker compose up -d                                   # Postgres: vesyn_db on :5437
-conda activate retrosynth
-pip install langgraph                                  # the only new backend dependency
-uvicorn backend.api.main:app --port 8436               # API + agents; creates the mas.* schema itself
+## What makes it different from a chatbot
+
+- **Agents decide what to do; tools decide what is true.** No agent judges chemical validity — RDKit, the
+  forward model and the literature index do. The LLM only writes prose (the critic's notes and the report), and
+  a run is fully functional with no LLM at all (`VESYN_LLM=none`).
+- **Nothing is faked in the interface.** Every panel is a pure fold of the event stream. A value the backend did
+  not return reads *NOT REPORTED*; an unreachable API reads *API OFFLINE*.
+- **Every scientific action has provenance.** `mas.tool_calls` records who called what, which tool version, why,
+  the full input and output, timing and status — written *before* execution, so even a crash leaves a record.
+- **Degrade, don't fail.** A missing forward model, evidence index or LLM downgrades the affected signal and says
+  so in the critique. Only a failure of the core search, or an unresolvable target, fails a run.
+
+## What you can ask
+
+| Task | Example prompt | What comes back |
+| --- | --- | --- |
+| Retrosynthesis | "plan a synthesis of aspirin" | Ranked routes, validated step by step, with a recommendation or an honest refusal |
+| Solubility | "solubility of ibuprofen" | Predicted aqueous solubility with an interval and an applicability flag |
+| Properties | "descriptors for CC(=O)Oc1ccccc1C(=O)O" | RDKit descriptors and drug-likeness |
+| Analogues | "drugs similar to caffeine" | Nearest approved drugs from ChEMBL, by fingerprint similarity |
+| Profile | "tell me about paracetamol" | Descriptors, predicted solubility and nearest approved drugs |
+
+A prompt that names no supported task fails honestly, listing what Vesyn can do, instead of guessing.
+
+## How a run works
+
+```mermaid
+flowchart LR
+    U(["Prompt and/or structure"]) --> P["Orchestrator<br/>resolve target, plan tasks"]
+    P --> R["Research<br/>descriptors, solubility, analogues"]
+    P --> T["Retrosynthesis<br/>AiZynthFinder search"]
+    R --> V["Validation<br/>RDKit · ReactionT5 · literature"]
+    T --> V
+    V -- "a route is usable" --> C["Critic<br/>severity-ranked issues"]
+    V -- "none usable, up to 3x" --> RP["Replanner<br/>widen the budget"]
+    RP --> T
+    C --> E["Evaluator<br/>score, rank, report"]
+    E --> O(["Ranked routes · critique · report"])
 ```
 
-Optional, each degrades gracefully when absent:
+Research and retrosynthesis run in parallel. Validation checks each step by reversing the template in RDKit,
+predicting the forward reaction with ReactionT5, and looking for literature precedent; the verdict passes when at
+least one solved route has no step flagged for review. A failed verdict sends the run back to the replanner, which
+widens the search (100 → 250 → 500 iterations) up to three times.
+
+Every tool call passes through one gateway: **policy → audit → run → audit → event**. A call is refused, and
+audited as refused, when the tool is unknown, the agent is not on its allow-list, or the input breaks the tool's
+policy. Full design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Event contract: [docs/EVENTS.md](docs/EVENTS.md).
+
+## Quickstart
+
+**You need:** Docker, Python 3.11 (conda), Node 20, and about 6 GB of free RAM — the API holds the AiZynthFinder
+model and its purchasable-compound stock in memory.
 
 ```bash
-# ReactionT5 forward validation (port 8435). One-off setup, Python 3.10 + CPU torch:
+# 1. Database: Postgres with the RDKit cartridge, on 127.0.0.1:5437
+docker compose up -d
+
+# 2. Python environment
+conda env create -f environment.yml && conda activate retrosynth
+
+# 3. First run only: model data (~750 MB), the solubility model, the drug library
+download_public_data data/external/aizynthfinder
+python scripts/download_esol.py && python -m backend.qsar.train
+python scripts/download_chembl.py && python scripts/ingest_molecules.py
+
+# 4. API and agents (creates its own mas.* schema)
+uvicorn backend.api.main:app --port 8436
+
+# 5. Web app, in another terminal
+npm install --prefix frontend && npm run dev --prefix frontend
+```
+
+Then open <http://localhost:3100>. The API reports retrosynthesis as not ready until the model has loaded, which
+takes tens of seconds on the first start.
+
+Three additions are optional, and each degrades gracefully when absent:
+
+```bash
+# ReactionT5 forward validation (:8435). One-off setup, Python 3.10 + CPU torch:
 #   py -3.10 -m venv venv-t5 && venv-t5\Scripts\pip install -r backend/forward_model_service/requirements.txt
 venv-t5\Scripts\python -m uvicorn --app-dir backend/forward_model_service main:app --port 8435
-# LLM: reads free-text prompts, writes the critic's notes and the report - default is local Ollama
-ollama pull qwen3:14b          # or VESYN_LLM=anthropic:claude-sonnet-5 / openai:<model> / none
-```
 
-UI (Next.js): `npm install --prefix frontend && npm run dev --prefix frontend` → <http://localhost:3100>
-(entry), <http://localhost:3100/dashboard> and <http://localhost:3100/lab> (the lab).
-Or skip the UI:
+# LLM for the critic's notes and the report; the default is a local Ollama model
+ollama pull qwen3:14b
 
-```bash
-curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' -d '{"prompt": "plan a synthesis of paracetamol"}'
-curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' -d '{"prompt": "solubility of this", "smiles": "CCO"}'
-curl localhost:8436/api/runs/<run id>                  # result: ranked routes, critique, report
-```
-
-Tests: `pytest tests/test_mas.py` (20 tests; the end-to-end ones run the real
-team on aspirin).
-
-### Deploy for review (free, no card)
-
-Website on **Vercel Hobby**; backend on this laptop, published over HTTPS by
-**Tailscale Funnel** (stable `https://<machine>.<tailnet>.ts.net`, WebSockets included).
-
-1. Install [Tailscale for Windows](https://tailscale.com/download/windows) and sign in.
-2. `.\start-vesyn.ps1` - starts the database, Ollama, ReactionT5 and the API, then the
-   Funnel. The first time, follow the link it prints to enable HTTPS/Funnel. It ends by
-   printing the public API URL.
-3. Vercel -> import the repo, root directory `frontend`, environment variable
-   `NEXT_PUBLIC_API_URL=<that URL>`, deploy.
-4. The API only accepts browser calls from `http://localhost:3100` and a Vercel project
-   named `vesyn*` (plus its preview URLs). Otherwise:
-   `.\start-vesyn.ps1 -Origins "http://localhost:3100,https://<your-app>.vercel.app"`.
-
-`.\stop-vesyn.ps1` stops it (data kept). While the laptop is off the site still loads
-and says **API OFFLINE**. Keep the laptop plugged in with sleep off during reviews.
-
----
-
-*The rest of this README is RamChems' own and still applies; where it says
-port 8434 / 5173 / 5434, Vesyn uses 8436 / 3100 / 5437.*
-
-A local drug discovery platform. Three backend modules and a frontend for testing them.
-
-| Module | Docs |
-|---|---|
-| Retrosynthesis (AiZynthFinder) | [backend/retrosynthesis/README.md](backend/retrosynthesis/README.md) |
-| Molecular representation + search (RDKit + Postgres cartridge) | [backend/molrepr/README.md](backend/molrepr/README.md) |
-| QSAR property prediction (solubility) | [backend/qsar/README.md](backend/qsar/README.md) |
-| Reaction conditions + literature evidence (ORD) | [docs/reaction-condition-intelligence.md](docs/reaction-condition-intelligence.md) |
-| Retrieval benchmark (is "similar" actually relevant?) | [docs/retrieval-benchmark.md](docs/retrieval-benchmark.md) |
-| Frontend (Next.js 14 + Tailwind + three.js) | [frontend/README.md](frontend/README.md) |
-
-Every dataset, its licence, and what that licence permits:
-[docs/data-provenance.md](docs/data-provenance.md). Read it before shipping —
-the reaction-condition data is **CC-BY-SA-4.0**, which is copyleft.
-
-## Running everything locally
-
-Three things must be up, in this order. Use three terminals.
-
-**1. Database** (repo root)
-
-```bash
-docker compose up -d
-```
-
-Postgres with the RDKit cartridge on `127.0.0.1:5434`. First run only, populate it:
-
-```bash
-conda activate retrosynth
-python scripts/download_chembl.py
-python scripts/ingest_molecules.py
-```
-
-**2. Backend API** (repo root)
-
-```bash
-conda activate retrosynth
-uvicorn backend.api.main:app --port 8434
-```
-
-Takes ~8 s to start — it loads the AiZynthFinder expansion model and the ZINC stock
-once, at startup. `GET /retrosynthesis/health` returns 503 until it is ready.
-
-First run only, download the retrosynthesis model data (~754 MB) and train the
-QSAR models (~30 s):
-
-```bash
-download_public_data data/external/aizynthfinder
-python scripts/download_esol.py
-python -m backend.qsar.train
-```
-
-Optional, for reaction conditions on the arrow — ingest Open Reaction Database
-datasets into the evidence index (separate conda env; see
-[docs/reaction-condition-intelligence.md](docs/reaction-condition-intelligence.md)):
-
-```bash
+# Literature evidence: ingest Open Reaction Database datasets into the index
+# (separate conda env; see docs/reaction-condition-intelligence.md)
 conda activate ord-ingest
 python scripts/ingest_ord.py --list
 python scripts/ingest_ord.py --dataset <id>
 ```
 
-Without this the platform works exactly as before; steps simply report
-"no verified evidence" rather than inventing conditions.
+Without the evidence index, validation reports "no verified evidence" for a step rather than inventing
+conditions for it.
 
-**3. Frontend**
+On Windows, `.\start-vesyn.ps1` starts all of it in order (database → Ollama → ReactionT5 → API), leaves anything
+already running alone, and writes logs to `logs/`. `.\stop-vesyn.ps1` stops it and keeps the data.
+
+Two things to know before changing versions. The conda environments are deliberately separate — `retrosynth`
+serves the API, `qsar-chemprop` trains, `ord-ingest` ingests ORD — because their pins contradict each other; see
+[backend/qsar/README.md](backend/qsar/README.md). And the Postgres image tag is coupled to the Python `rdkit` pin:
+both ship RDKit 2023.09 so that Python and the database cannot disagree about canonicalisation. Move them
+together, as the comment in [docker-compose.yml](docker-compose.yml) says.
+
+## Without the web app
 
 ```bash
-npm install --prefix frontend
-npm run dev --prefix frontend
+curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' \
+     -d '{"prompt": "plan a synthesis of paracetamol"}'
+
+curl -X POST localhost:8436/api/projects -H 'Content-Type: application/json' \
+     -d '{"prompt": "solubility of this", "smiles": "CCO"}'
+
+curl localhost:8436/api/runs/<run id>     # status, ranked routes, critique, report
 ```
 
-Then open <http://localhost:5173>.
+| Endpoint | What it does |
+| --- | --- |
+| `POST /api/projects` | `{prompt, smiles?}` (or `{target}`) → a project and a started run |
+| `GET /api/runs/{id}` | status and the final package: ranked routes, critique, report |
+| `GET /api/events?run_id=&after=` · `WS /ws/events` | persisted events; replay from a sequence number, then the live tail |
+| `GET /api/audit?run_id=` · `GET /api/audit/{call_id}` | the provenance log, and one call with its full input and output |
+| `GET /api/agents` · `/api/tools` · `/api/graph` | live agent state, the tool registry, the agent graph |
+| `POST /agui` | AG-UI `RunAgentInput` → an SSE stream, for any AG-UI client |
+| `POST /api/retrosynthesis` · `POST /api/validation` | one governed tool call, no agents |
 
-## Checking it works
+The full list, including the chemistry endpoints (`/retrosynthesis/*`, `/search/*`, `/molecules/*`, `/predict/*`),
+is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api).
 
-Paste `CC(=O)Oc1ccccc1C(=O)O` into the SMILES field (or click the **Aspirin**
-quick-load button) and:
+## What a run produces
 
-- **Represent** returns canonical SMILES `CC(=O)Oc1ccccc1C(=O)O`, InChIKey
-  `BSYNRYMUTXBXSQ-UHFFFAOYSA-N`, MW 180.159.
-- **Retrosynthesis** solves in ~3 s: acetic anhydride + salicylic acid.
-- **Search → Similarity** returns aspirin at 1.0000, then benorilate 0.5128 and
-  salicylic acid 0.4483.
-- `POST /predict/property` returns solubility -2.19 log10(mol/L) with an
-  applicability flag.
+`{"prompt": "plan a synthesis of aspirin"}` on a laptop, with the local LLM: about a minute, 153 events and 23
+audited tool calls, ending in five ranked routes. The top route (score 0.9996) is one step — acetic anhydride and
+salicylic acid, both in stock — where the RDKit template check and the forward model agree and the literature
+index finds experimental precedent. The verdict: *3 of 5 routes have no step flagged by validation*.
 
-The header badge shows whether the backend is reachable, so a forgotten step 2 is
-obvious immediately.
+That exact run is checked into the repo at [`frontend/public/demo/run.json`](frontend/public/demo/run.json), so
+you can read its events, audit log and final package without running anything.
 
-## Ports
+## The web app
 
-| Port | What | Note |
-|---|---|---|
-| 5173 | Vite dev server | fixed; the backend CORS allow-list names it |
-| 8434 | FastAPI | **not** 8000 — that is every framework's default and is contended on a multi-project machine. Override in `frontend/.env` via `VITE_API_BASE` |
-| 5434 | Postgres | 5432/5433 were already taken by other projects on this machine |
+Next.js 14, React 18, TypeScript, Tailwind and three.js, in [`frontend/`](frontend/README.md).
 
-Postgres also holds the reaction-evidence index and its cache — no Redis, no
-second datastore.
+| Route | What it shows |
+| --- | --- |
+| `/` | The entry: one molecule, rendered in 3D |
+| `/dashboard` | The current run: target, agents, workflow, live event feed, routes, evidence, service health |
+| `/lab` | The 3D research facility, one zone per agent |
+| `/lab/{chemistry,routes,evidence,intelligence,audit}` | Workspaces over the same run, including the flight recorder |
+
+The whole interface is derived from the event stream, so the timeline scrubber replays a run by re-folding the
+events it actually emitted. When the API has not answered since the page loaded, the app shows one recorded run
+from `public/demo/run.json`, labelled **SIMULATED** in a banner and in the connection pill; API health, the
+services panel and the entry checks keep reporting the real state, and no run can be started.
+
+## Configuration
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `VESYN_DSN` | `postgresql://vesyn:vesyn@127.0.0.1:5437/vesyn` | Postgres connection |
+| `VESYN_LLM` | `ollama:qwen3:14b` | or `anthropic:<model>`, `openai:<model>`, or `none` |
+| `VESYN_FORWARD_URL` | `http://localhost:8435/predict` | ReactionT5 service |
+| `VESYN_EVIDENCE_PROVIDER` | `ord` | `null` turns the evidence index off |
+| `VESYN_CORS_ORIGINS` | `*` | comma-separated browser origins |
+| `VESYN_CORS_ORIGIN_REGEX` | — | regex for further origins |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8436` | the API base the browser calls |
+
+**Ports:** 8436 API · 3100 web app · 8435 ReactionT5 · 5437 Postgres · 11434 Ollama. They avoid the defaults on
+purpose, so a sibling project can run beside Vesyn untouched.
+
+## Repository layout
+
+```
+backend/
+  api/        FastAPI app: chemistry endpoints, the agent routes, the WebSocket
+  mas/        the agent layer: graph, agents, tools, gateway, events, store, intent, LLM
+  retrosynthesis/  molrepr/  qsar/  conditions/    the chemistry services
+  forward_model_service/                           ReactionT5, its own process and venv
+frontend/     Next.js app: entry, dashboard, 3D lab and its workspaces
+scripts/      data download, ingestion and benchmarks
+db/           the schema SQL Postgres runs on first start
+docs/         architecture, events, frontend, data provenance, benchmarks, plans
+tests/        backend tests
+```
 
 ## Tests
 
 ```bash
 conda activate retrosynth
-pytest                                  # 197 backend tests
-python scripts/test_retrosynthesis.py   # 3-molecule sanity check, exits 1 by design
-npx tsc -b --noEmit --project frontend  # frontend typecheck
+pytest                       # 272 backend tests
+pytest tests/test_mas.py     # 21 agent-layer tests; the end-to-end ones run the real team on aspirin
+
+npm test --prefix frontend       # 170 tests: the event fold, the socket, the dashboard model
+npm run typecheck --prefix frontend && npm run lint --prefix frontend
 ```
 
-`scripts/test_retrosynthesis.py` exits non-zero because it flags ibuprofen as
-unsolved at the default iteration limit. That is the script doing its job as a
-review tool — do not wire it into CI as-is.
+The agent layer's decision functions — when to search again, how to judge a verdict, how to score a route — are
+pure functions, and they are unit-tested as such.
 
-## Environments
+## Deploying for review
 
-Three conda envs, deliberately separate:
+The review setup is free and needs no payment card: the web app on Vercel, the backend on a laptop, published
+over HTTPS by Tailscale Funnel, which gives a stable URL and passes WebSockets through.
 
-| env | holds | why |
-|---|---|---|
-| `retrosynth` | everything served by the API | rdkit 2023.09.6, networkx 2.x, pinned by AiZynthFinder and coupled to the Postgres cartridge |
-| `qsar-chemprop` | chemprop + torch cu128 only | chemprop needs rdkit >= 2026 and networkx >= 3, which would break the above |
-| `ord-ingest` | `ord-schema` + pyarrow, for ORD ingestion only | `ord-schema` pins protobuf < 6 and rdkit >= 2026, both of which break the serving env |
+1. Install [Tailscale](https://tailscale.com/download/windows) and sign in.
+2. `.\start-vesyn.ps1` — starts everything, then the Funnel, and prints the public API URL.
+3. On Vercel: import the repository, set the root directory to `frontend`, set `NEXT_PUBLIC_API_URL` to that URL.
+4. The API accepts browser calls from `http://localhost:3100` and a Vercel project named `vesyn*`. For any other
+   domain: `.\start-vesyn.ps1 -Origins "https://<your-app>.vercel.app"`.
 
-They never import each other; QSAR splits cross between them as CSV. The API loads
-only the `retrosynth` env. See [backend/qsar/README.md](backend/qsar/README.md).
+A first connection through the Funnel takes a few seconds, so the client waits patiently before it will call the
+API offline. While the backend is down, the site still loads and shows the labelled recording.
 
-Python side is the conda env `retrosynth` (Python 3.11); see
-[environment.yml](environment.yml) and [requirements.txt](requirements.txt).
+## Data, licences and provenance
 
-The Postgres image tag and the Python `rdkit` pin are **coupled** — both ship RDKit
-2023.09 so that Python and the cartridge cannot disagree about canonicalization.
-Move them together. See the comment in [docker-compose.yml](docker-compose.yml).
+Every dataset, where it came from, what its licence permits, and how that was verified:
+[docs/data-provenance.md](docs/data-provenance.md).
+
+| Component | Licence | Commercial use |
+| --- | --- | --- |
+| AiZynthFinder + USPTO templates | MIT / public-domain source | Yes |
+| USPTO patent reactions (Lowe) | CC0 | Yes |
+| **Open Reaction Database conditions** | **CC-BY-SA-4.0** | **ShareAlike — needs legal review before release** |
+| ChEMBL drug library | CC-BY-SA-3.0 | Attribution; review |
+| PubChem name resolution | Public domain | Yes |
+
+Until the ShareAlike question is settled, treat the ORD index as a research evidence provider, one of several,
+rather than a permanent foundation.
+
+## Status and limits
+
+- **A research instrument, not a validated one.** No route here has been run in a lab. The ranking score is a
+  heuristic over the signals available, explicitly *not* a feasibility or yield probability, and when the best
+  route still needs review the evaluator recommends nothing.
+- **Evidence keeps its level.** Direct precedent, similar precedent, AI-predicted and no verified evidence stay
+  distinguishable everywhere; a similar precedent is never presented as a direct one.
+- **One run at a time.** AiZynthFinder is a single in-process instance behind a lock, and events fan out inside
+  one API process. Concurrency needs workers and a shared bus first — see the decisions table in
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **No authentication.** Access is limited only by where the API is reachable and by the browser-origin
+  allow-list. The review deployment is for that purpose alone; take the Funnel down afterwards.
+- **The helper scripts are PowerShell**, so the one-command start is Windows-only; the stack itself is not.
+
+## Documentation
+
+| Document | What is in it |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Agents, the graph, the gateway, the API, and what was deliberately left out |
+| [docs/EVENTS.md](docs/EVENTS.md) | The event contract every interface folds |
+| [docs/FRONTEND.md](docs/FRONTEND.md) · [docs/FRONTEND-HANDOFF.md](docs/FRONTEND-HANDOFF.md) | The interface, its rules, and how it is wired |
+| [docs/data-provenance.md](docs/data-provenance.md) | Datasets, licences and the verification behind each |
+| [docs/reaction-condition-intelligence.md](docs/reaction-condition-intelligence.md) | The evidence index: how conditions are retrieved |
+| [docs/retrieval-benchmark.md](docs/retrieval-benchmark.md) | Whether "similar" is actually relevant, measured |
+| [docs/product-plan.md](docs/product-plan.md) · [docs/ROADMAP.md](docs/ROADMAP.md) | Where this is going |
+| [backend/retrosynthesis](backend/retrosynthesis/README.md) · [backend/molrepr](backend/molrepr/README.md) · [backend/qsar](backend/qsar/README.md) | The chemistry services |
+
+## Licence
+
+No licence has been chosen yet, so default copyright applies to this code. The datasets and models it uses carry
+their own licences — see [docs/data-provenance.md](docs/data-provenance.md).
