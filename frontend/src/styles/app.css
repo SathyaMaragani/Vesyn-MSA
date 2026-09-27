@@ -234,28 +234,15 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
 }
 
 /*
- * The dashboard's gold theme. A scope, not a new palette: the dashboard frame sets these on its root, so every
- * token-driven colour inside it turns gold while the lab keeps its own. Gold is the accent AND "done", as in the
- * design; state words and the pulse carry the difference between the two.
+ * The dashboard's scope (overview and search). It shares the rest of Vesyn's palette - the same graphite surfaces,
+ * type, and status colours as the lab - and sets only its accent, so the pages read as one product.
  */
 .nc-dash {
-  --nc-base: 9 9 8;
-  --nc-raised: 15 15 13;
-  --nc-panel: 20 19 16;
-  --nc-panel-2: 29 27 21;
-  --nc-line: 46 42 32;
-  --nc-line-strong: 82 72 48;
-  --nc-hi: 241 235 221;
-  --nc-mid: 178 170 151;
-  --nc-lo: 130 122 104;
-  --nc-cyan: 228 182 92;
-  --nc-ok: 232 198 128;
-  --nc-warn: 234 140 62;
-  --nc-bad: 222 88 72;
+  --nc-cyan: 142 165 143; /* #8EA58F sage */
 }
 
 @layer components {
-  /* a panel: rounded, hairline gold border, a faint top light */
+  /* a panel: rounded, hairline border, a faint top light in the accent */
   .nc-card {
     @apply relative min-w-0 rounded-[14px] border border-nc-line;
     background:

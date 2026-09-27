@@ -2,8 +2,8 @@
 
 // The dashboard's own frame: NOT the lab's. A command header - the brand, the search that starts a run (kept at the
 // top, where it has always been; "/" focuses it from anywhere, and the Search tab has the full version), the project,
-// the run's state and the connection - then the places in Vesyn, with the current one lit. The gold theme is a scope
-// set here (.nc-dash), so the lab keeps its own palette. LAB is the one way in with a transition: a wipe that grows
+// the run's state and the connection - then the places in Vesyn, with the current one lit. Its scope (.nc-dash) shares
+// the lab's palette and sets only the accent. LAB is the one way in with a transition: a wipe that grows
 // out of the pointer in the lab's own darkness.
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";

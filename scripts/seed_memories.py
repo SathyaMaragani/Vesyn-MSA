@@ -154,7 +154,7 @@ def assert_flip(before: list[dict], after: list[dict]) -> None:
 
     was, before_scores = winner(before)
     now, after_scores = winner(after)
-    print(f"flip check on demo/runs/gefitinib.json (penalty {PENALTY_PER_STEP} per flagged step):")
+    print(f"flip check on demo/runs/gefitinib.json (penalty {PENALTY_PER_STEP:.2f} per flagged step):")
     for r in routes:
         print(f"   route {r['route_id']} ({r['number_of_reactions']} steps) {r['score']:.4f} -> "
               f"before {before_scores[r['route_id']]:.4f} -> after {after_scores[r['route_id']]:.4f}")

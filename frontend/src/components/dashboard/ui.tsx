@@ -102,7 +102,7 @@ export function Numeral({ value, label, tone = "idle", size = "lg" }: { value: n
 
 export const PIPE = "font-data text-[10px] uppercase tracking-[0.16em]";
 
-// --- the overview's card vocabulary (the gold redesign) -------------------------------------------------------------------
+// --- the overview's card vocabulary ----------------------------------------------------------------------
 
 /** A rounded panel with a title row: the overview's unit. `lit` marks the one selected thing on the page. */
 export function Card({

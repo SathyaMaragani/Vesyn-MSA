@@ -118,7 +118,7 @@ export function TargetCard({ m, facts, routes }: { m: DashboardModel; facts: Tar
               <MoleculeStage smiles={m.target.smiles} className="absolute inset-0" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <MoleculeDrawing smiles={m.target.smiles} width={300} height={220} bg="#121210" />
+                <MoleculeDrawing smiles={m.target.smiles} width={300} height={220} bg="#1d201c" />
               </div>
             ))}
         </div>
