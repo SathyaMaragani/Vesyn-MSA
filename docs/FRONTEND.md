@@ -117,7 +117,7 @@ The product has four modes, and each is its own page: `/` is the cinematic entry
 
 `lib/dashboard/model.ts` is one pure function, `buildDashboard`, of the folded events, the evaluator's package, the agent views and the service probes; `lib/dashboard/overview.ts` reads the evaluator's package for the overview's panels (route cards, why this route, timeline, agent details, key evidence). Components only render them, so nothing on the page can be invented in the view layer (`tests/dashboard.test.ts`, and `tests/overview.test.ts`, which checks the panels against the recorded runs in `demo/runs/`). A value the run does not support is `null` and reads NOT REPORTED or "—"; a zero is only ever a real zero.
 
-The overview wears a gold theme set as a scope (`.nc-dash` in `styles/app.css`) by the dashboard frame, so the lab keeps its own palette. The tabs come from one list, `lib/nav.ts`, shared with the lab's top bar.
+The overview and search share Vesyn's palette — the same graphite surfaces, type and status colours as the lab — and set only their own accent, as a scope (`.nc-dash` in `styles/app.css`) applied by the dashboard frame. The tabs come from one list, `lib/nav.ts`, shared with the lab's top bar.
 
 | Panel | Source (all real) |
 | --- | --- |

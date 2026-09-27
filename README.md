@@ -58,13 +58,22 @@ learns that one transformation failed on scale-up:
 
 | | Before | After |
 |---|---|---|
-| Recommended | a 3-step route that couples the aniline onto the quinazolinone · **0.79** | a 3-step route that avoids that coupling · **0.76** |
+| Recommended | the 3-step route that couples the aniline onto the quinazolinone · **0.79** | a 3-step route that avoids that coupling · **0.76** |
 | The route that led before | — | ranked down to **0.64**: *"flagged in 1 earlier investigation(s) (simulated demo record): … at 120 g the isolated yield fell from 68% to 31% with bis-arylated impurity as the main by-product"* |
-| Also applied | two transformations ReactionT5 disputed while investigating **erlotinib**, a related EGFR inhibitor, rank two other gefitinib routes down | the same |
+| Lessons | 4, all real — transformations ReactionT5 disputed while investigating **erlotinib**, a related EGFR inhibitor. They rank a candidate down, but not the leader | 5 — the same four, plus the lab report, which does hit the leader |
 
-<p align="center">
-  <img src="docs/images/memory.png" alt="After the lab report: route 2 recommended; route 1 marked as reusing a transformation flagged in an earlier investigation, labelled simulated; the memory card lists routes 1 and 4 ranked down by the simulated lab record and routes 0 and 3 by a real ReactionT5 disagreement" width="100%">
-</p>
+<table>
+<tr>
+<td width="50%">
+  <img src="docs/images/memory-before.png" alt="Before the lab report: the coupling route recommended at 0.79, no simulated badge, and the memory card showing 21 recalled and 4 lessons, all from real ReactionT5 disagreements" width="100%">
+  <p align="center"><b>Before</b> — 21 recalled, 4 lessons, all real. The coupling route leads at <b>0.79</b>.</p>
+</td>
+<td width="50%">
+  <img src="docs/images/memory.png" alt="After the lab report: another route recommended; the coupling route marked as reusing a transformation flagged in an earlier investigation, labelled simulated; the memory card lists it and a sibling ranked down by the simulated lab record, and two more by a real ReactionT5 disagreement" width="100%">
+  <p align="center"><b>After</b> — one memory later. The coupling route is <b>0.64</b>, marked <b>SIMULATED</b>, and a route that avoids it leads.</p>
+</td>
+</tr>
+</table>
 
 The routes, templates, scores and the erlotinib disagreements are real pipeline output. The scale-up failure is
 invented for the demo — see below.
