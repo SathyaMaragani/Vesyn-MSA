@@ -135,6 +135,33 @@ def test_learned_model_mismatch(mocker):
     assert result.predicted_product == "CCc1ccc(CC(C)C)cc1"
 
 
+def test_learned_model_reads_a_prediction_the_tokenizer_spaced_out(mocker):
+    """A decoded SMILES with spaces is the exact product, not an invalid structure.
+
+    ReactionT5's SentencePiece decode puts spaces between tokens. Parsed as-is, RDKit rejects
+    the prediction and the step is recorded MODEL_OUTPUT_INVALID - forward validation silently
+    reporting nothing when the model in fact named the product exactly.
+    """
+    from backend.retrosynthesis.validation import MicroserviceLearnedForwardModel
+
+    mock_resp = mocker.Mock()
+    mock_resp.json.return_value = {
+        "predicted_products": [
+            {"smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl )c3)c2cc1OCCCN1CCOCC1", "confidence": 1.0}
+        ],
+        "model_name": "mock-t5", "model_version": "v1",
+    }
+    mocker.patch("requests.post", return_value=mock_resp)
+
+    model = MicroserviceLearnedForwardModel()
+    result = model.validate_step(
+        "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+        ["COc1cc2ncnc(Cl)c2cc1OCCCN1CCOCC1", "Nc1ccc(F)c(Cl)c1"],
+    )
+
+    assert result.status == ValidationStatus.MATCH
+
+
 def test_learned_model_timeout_handling(mocker):
     from backend.retrosynthesis.validation import MicroserviceLearnedForwardModel
     import requests

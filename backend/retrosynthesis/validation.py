@@ -4,6 +4,7 @@ from __future__ import annotations
 import enum
 import itertools
 import logging
+import os
 import time
 from typing import Any, Optional
 
@@ -213,8 +214,16 @@ class MicroserviceLearnedForwardModel(ForwardModel):
     and overreaction checks.
     """
 
-    def __init__(self, endpoint_url: str = "http://localhost:8435/predict"):
+    def __init__(self, endpoint_url: str = "http://localhost:8435/predict",
+                 read_timeout: float | None = None):
         self.endpoint_url = endpoint_url
+        # The service holds one model and answers serially, while the validator checks every
+        # step of every route concurrently: with top_n routes the last request waits for all
+        # the others. A total timeout small enough to trip under that load silently degrades
+        # steps to MODEL_UNAVAILABLE (the service still answers 200), which changes route
+        # scores from one run to the next. Wait for the queue; fail fast only when nothing is
+        # listening. Raise VESYN_FORWARD_TIMEOUT if a larger top_n queues past this.
+        self.read_timeout = read_timeout or float(os.environ.get("VESYN_FORWARD_TIMEOUT", "180"))
 
     def validate_step(
         self, target_product_smiles: str, reactants_smiles: list[str], **kwargs
@@ -234,7 +243,7 @@ class MicroserviceLearnedForwardModel(ForwardModel):
             resp = requests.post(
                 self.endpoint_url,
                 json={"reactants_smiles": reactants_smiles, "top_k": 5},
-                timeout=10.0
+                timeout=(2.0, self.read_timeout),
             )
             resp.raise_for_status()
             data = resp.json()
@@ -248,7 +257,11 @@ class MicroserviceLearnedForwardModel(ForwardModel):
             valid_predictions = False
             
             for pred in predicted_products:
-                psmi_raw = pred.get("smiles", "")
+                # Tokenizer-decoded SMILES can carry spaces ("c(Cl )c"); a space ends the structure,
+                # so RDKit would reject an otherwise exact prediction and the step would be recorded
+                # as MODEL_OUTPUT_INVALID. The service strips them; any other forward model behind
+                # this endpoint might not, and this failure mode is silent, so normalise here too.
+                psmi_raw = pred.get("smiles", "").replace(" ", "")
                 try:
                     pmol = Chem.MolFromSmiles(psmi_raw)
                     if pmol:

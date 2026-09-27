@@ -92,7 +92,11 @@ def predict(request: ReactionRequest):
         
         predictions = []
         for seq, score in zip(sequences, scores):
-            pred_smiles = tokenizer.decode(seq, skip_special_tokens=True)
+            # The SentencePiece decode puts spaces back between tokens ("c(Cl )c"), which is not
+            # valid SMILES - a space ends the structure - so RDKit rejects the whole prediction and
+            # the step is recorded as MODEL_OUTPUT_INVALID even when the model named the product
+            # exactly. No SMILES contains a space (components are separated by "."), so strip them.
+            pred_smiles = tokenizer.decode(seq, skip_special_tokens=True).replace(" ", "")
             # Normalise probability (roughly)
             conf = torch.exp(score).item() if isinstance(score, torch.Tensor) else score
             predictions.append(Prediction(smiles=pred_smiles, confidence=conf))
