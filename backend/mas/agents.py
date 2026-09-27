@@ -217,10 +217,25 @@ def memory_used(state: dict, ranked: list[dict]) -> dict:
     return {
         "recalled": len(state.get("memories") or []),
         "applied": [
-            {"route_id": r["route_id"], "step": i["step"], "issue": i["issue"]}
+            {"route_id": r["route_id"], "step": i["step"], "issue": i["issue"],
+             "simulated": bool(i.get("simulated"))}
             for r in ranked for i in r["critique"]["issues"] if i["source"] == "memory"
         ],
     }
+
+
+def simulated_note(critiques: list[dict]) -> str:
+    """A sentence that must follow any prose built on a simulated lesson.
+
+    The LLM is asked to keep the label, but a paraphrase drops it easily ("a documented yield
+    drop"), and prose is what a reader sees first. So the label does not depend on the model:
+    whatever it wrote, this is appended.
+    """
+    n = sum(1 for c in critiques for i in c["issues"] if i.get("simulated"))
+    if not n:
+        return ""
+    return (f" Note: {n} lesson(s) applied here come from simulated demo records - invented lab "
+            "history seeded for the demo, not measurements.")
 
 
 # --- decisions (pure, unit-tested) -----------------------------------------
@@ -310,10 +325,11 @@ def critique(route: dict, lessons: dict[str, list[dict]] | None = None) -> dict:
 
         past = (lessons or {}).get(rxn.get("template_hash"))
         if past:
-            simulated = " (simulated demo record)" if memory.SIMULATED in past[0]["tags"] else ""
-            issues.append({**at, "severity": "high", "source": "memory",
+            simulated = memory.SIMULATED in past[0]["tags"]
+            issues.append({**at, "severity": "high", "source": "memory", "simulated": simulated,
                            "issue": f"This transformation was flagged in {len(past)} earlier "
-                                    f"investigation(s){simulated}: {past[0]['text']}"})
+                                    f"investigation(s){' (simulated demo record)' if simulated else ''}: "
+                                    f"{past[0]['text']}"})
 
     n = route["number_of_reactions"]
     if n >= 6:
@@ -572,7 +588,9 @@ CRITIC_SYSTEM = (
     "deterministic tools have already checked (RDKit template reversal, the ReactionT5 "
     "forward model, literature precedent). Interpret only those signals: never claim a "
     "reaction works or fails beyond what they show, and never invent chemistry, yields or "
-    "conditions. Write 4-6 plain sentences: which route looks strongest and why, the most "
+    "conditions. An issue marked (simulated demo record) is invented history, not a "
+    "measurement: if you mention it, say it is simulated, never 'documented' or 'reported'. "
+    "Write 4-6 plain sentences: which route looks strongest and why, the most "
     "serious weakness in each serious contender, and what a chemist should check first."
 )
 
@@ -580,7 +598,8 @@ REPORT_SYSTEM = (
     "You write the executive summary of an automated retrosynthesis study for a medicinal "
     "chemist. Use only the facts given. State the recommendation (or that there is none), "
     "the evidence behind it, and the main risks, in one paragraph of at most 120 words. "
-    "If lessons recalled from earlier investigations changed the ranking, say which and why. "
+    "If lessons recalled from earlier investigations changed the ranking, say which and why; "
+    "a lesson marked (simulated demo record) is invented history - call it simulated. "
     "No markdown, no invented numbers."
 )
 
@@ -616,7 +635,10 @@ async def critic(state: dict) -> dict:
             "; ".join(f"route {c['route_id']}: {c['headline']}" for c in critiques)
             or f"Nothing to critique: {verdict['reason']}"
         )
-        await me.say("evaluator", notes["text"] if notes else fallback)
+        note = simulated_note(critiques)
+        if notes:
+            notes = {**notes, "text": notes["text"] + note}  # the report reads critic_notes too
+        await me.say("evaluator", notes["text"] if notes else fallback + note)
         me.output = {"routes_critiqued": len(critiques), "llm_notes": bool(notes)}
     return {"critiques": critiques, "critic_notes": notes}
 
@@ -718,11 +740,11 @@ async def evaluator(state: dict) -> dict:
             "lessons_from_earlier_investigations": used["applied"],
         }, indent=1)
         written = await narrate(me, REPORT_SYSTEM, facts, "Write the chemist-facing summary")
-        report = written["text"] if written else (
+        report = (written["text"] if written else (
             f"Target {state['target']['canonical_smiles']}. {verdict['reason']} "
             f"{len(ranked)} route(s) ranked after {len(state['attempts'])} search attempt(s). "
             f"{recommendation}"
-        )
+        )) + simulated_note([r["critique"] for r in ranked])
         final = {
             "run_id": run_id,
             "task": "retrosynthesis",

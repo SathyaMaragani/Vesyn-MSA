@@ -122,6 +122,22 @@ def test_recalled_flag_ranks_down_a_route_the_tools_pass():
     assert agents.score(fresh, agents.critique(fresh, lessons))[0] > agents.score(remembered, c)[0]
 
 
+def test_a_simulated_lesson_is_labelled_whatever_the_prose_says():
+    """Invented lab history must never read as measured, even after an LLM paraphrases it."""
+    real = memory.lessons([_recalled("ReactionT5 disagrees.", ["vesyn", memory.FLAGGED, "rxn:t1"])])
+    seeded = memory.lessons([_recalled("Yield fell at 120 g.",
+                                       ["vesyn", memory.SIMULATED, memory.FLAGGED, "rxn:t1"])])
+
+    real_c = agents.critique(_hashed(_route(0), "t1"), real)
+    seeded_c = agents.critique(_hashed(_route(0), "t1"), seeded)
+
+    assert real_c["issues"][0]["simulated"] is False
+    assert agents.simulated_note([real_c]) == "", "a real lesson gets no disclaimer"
+    assert seeded_c["issues"][0]["simulated"] is True
+    assert "(simulated demo record)" in seeded_c["issues"][0]["issue"]
+    assert "simulated demo records" in agents.simulated_note([seeded_c])
+
+
 def test_outcome_items_round_trip_into_lessons():
     good = _hashed(_route(0), "t_good")
     bad = _hashed(_route(1, sv="MISMATCH", summary="REVIEW_REQUIRED"), "t_bad")

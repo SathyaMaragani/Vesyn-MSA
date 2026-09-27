@@ -29,7 +29,7 @@ function Row({ children, onClick, href, hint, disabled }: { children: React.Reac
 export function Quick({ m }: { m: DashboardModel }) {
   const enter = useEnterLab();
   return (
-    <Section label="Quick access" index="11">
+    <Section label="Quick access" index="12">
       <div>
         <Row onClick={() => window.dispatchEvent(new Event("nc:focus-run"))} hint="new run">Start new run</Row>
         <Row onClick={(e) => enter({ x: e.clientX, y: e.clientY })} hint="/lab">Open lab</Row>

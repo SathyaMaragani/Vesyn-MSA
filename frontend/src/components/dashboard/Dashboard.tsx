@@ -16,6 +16,7 @@ import { Feed } from "./Feed";
 import { Alerts, Health } from "./Health";
 import { Hero } from "./Hero";
 import { LabPlan } from "./LabPlan";
+import { Memory } from "./Memory";
 import { Quick } from "./Quick";
 import { RouteSheet } from "./RouteSheet";
 import { Synthesis } from "./Synthesis";
@@ -60,6 +61,10 @@ export function Dashboard() {
       </div>
       <div className="col-span-12 xl:col-span-3">
         <Evidence m={model} />
+      </div>
+
+      <div className="col-span-12">
+        <Memory m={model} />
       </div>
 
       <div className="col-span-12 xl:col-span-5">

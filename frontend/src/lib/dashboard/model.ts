@@ -95,6 +95,28 @@ export interface EvidenceView {
   uncertainty: string | null;
 }
 
+/** What earlier investigations contributed to this run.
+ *
+ *  `recalled` counts what came back from the memory bank; `applied` is the subset that actually
+ *  marked a step, which is the only part that changed a score. A recalled memory that changed
+ *  nothing is still shown - that memory was read and found not to apply, which is a result.
+ */
+export interface MemoryPanelView {
+  /** false when the run has not reported memory - yet (running), or at all (memory off, or a run from before it) */
+  reported: boolean;
+  /** the run is still going, so anything not reported may still arrive */
+  pending: boolean;
+  recalled: number | null;
+  lessons: number | null;
+  retained: number | null;
+  /** memory unreachable: the run continued without it */
+  error: string | null;
+  /** null until the evaluator's package arrives - the critic may not have applied lessons yet, which is not "none" */
+  applied: { routeId: number; step: number | null; issue: string; simulated: boolean }[] | null;
+  /** the recalled memories themselves, newest-first as the backend ranked them */
+  items: { id: string; text: string; simulated: boolean; flagged: boolean; score: number | null }[];
+}
+
 export interface DashboardModel {
   hasRun: boolean;
   runId: string | null;
@@ -123,9 +145,14 @@ export interface DashboardModel {
   route: RoutePreview | null;
   candidates: number | null;
   evidence: EvidenceView;
+  memory: MemoryPanelView;
   alerts: Alert[];
   outcome: string | null;
 }
+
+/** The tag the seeder puts on invented demo history (scripts/seed_memories.py). */
+const SIMULATED_TAG = "demo-seed";
+const FLAGGED_TAG = "outcome:flagged";
 
 const QUIET = new Set<NeoEvent["type"]>(["AGENT_STATUS_CHANGED", "TOOL_REQUESTED", "TASK_ASSIGNED", "TASK_CREATED"]);
 
@@ -345,6 +372,34 @@ export function buildDashboard(input: {
     uncertainty: hasRun ? `The backend produces no probability or confidence score. ${result?.limitations[0] ?? ""}`.trim() : null,
   };
 
+  // --- memory: what earlier investigations contributed ----------------------------------------------------------------------------
+  const mem = run.memory;
+  const applied = result?.memory
+    ? result.memory.applied.map((a) => ({
+        routeId: a.route_id,
+        step: a.step,
+        issue: a.issue,
+        // The backend marks it; runs from before the field existed carry the label only in the text.
+        simulated: a.simulated ?? a.issue.includes("simulated demo record"),
+      }))
+    : null;
+  const memory: MemoryPanelView = {
+    reported: mem.recalled !== null || mem.retained !== null || result?.memory !== undefined,
+    pending: run.phase === "running",
+    recalled: mem.recalled ?? result?.memory?.recalled ?? null,
+    lessons: mem.lessons,
+    retained: mem.retained,
+    error: mem.recallError ?? mem.retainError,
+    applied,
+    items: mem.memories.map((m) => ({
+      id: m.id,
+      text: m.text,
+      simulated: m.tags.includes(SIMULATED_TAG),
+      flagged: m.tags.includes(FLAGGED_TAG),
+      score: m.score,
+    })),
+  };
+
   // --- alerts (restrained: the few things a chemist should look at) ---------------------------------------------------------------
   const alerts: Alert[] = [];
   if (run.phase === "failed") alerts.push({ key: "run-failed", tone: "bad", title: "RUN FAILED", detail: run.error ?? "the run failed; no reason was reported", href: "/lab/audit" });
@@ -377,6 +432,7 @@ export function buildDashboard(input: {
     route: previewOf(result),
     candidates: hasEvents ? latest.length : null,
     evidence,
+    memory,
     alerts: alerts.slice(0, 8),
     outcome: result?.recommendation ?? run.outcome?.recommendation ?? null,
   };

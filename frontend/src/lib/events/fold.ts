@@ -79,6 +79,21 @@ export interface ReplanView {
   completed: boolean;
 }
 
+/** What the research memory did in this run, as the events reported it.
+ *
+ *  `recalled`/`retained` are null until the event arrives: a run with memory switched off never
+ *  reports either, which is not the same as having recalled nothing. `error` is memory being
+ *  unreachable - the run went on without it, and the panel says so rather than showing a zero.
+ */
+export interface MemoryView {
+  recalled: number | null;
+  lessons: number | null;
+  memories: { id: string; text: string; tags: string[]; score: number | null }[];
+  retained: number | null;
+  recallError: string | null;
+  retainError: string | null;
+}
+
 export interface RunView {
   runId: string | null;
   projectId: string | null;
@@ -100,6 +115,7 @@ export interface RunView {
   latestAttempt: number;
   replans: ReplanView[];
   replanActive: boolean;
+  memory: MemoryView;
   outcome: { recommendedRouteId: number | null; recommendation: string; routes: number } | null;
   /** Every accepted event, sorted by seq. The audit view's "Events" tab reads this. */
   events: NeoEvent[];
@@ -127,6 +143,7 @@ export function emptyRun(runId: string | null): RunView {
     latestAttempt: 1,
     replans: [],
     replanActive: false,
+    memory: { recalled: null, lessons: null, memories: [], retained: null, recallError: null, retainError: null },
     outcome: null,
     events: [],
     lastSeq: 0,
@@ -352,8 +369,18 @@ export function reduceEvent(state: RunView, ev: NeoEvent): RunView {
     case "PROJECT_FAILED":
       return { ...s, phase: "failed", error: ev.data.error };
     case "MEMORY_RECALLED":
+      return {
+        ...s,
+        memory: {
+          ...s.memory,
+          recalled: ev.data.count,
+          lessons: ev.data.lessons,
+          memories: ev.data.memories ?? [],
+          recallError: ev.data.error ?? null,
+        },
+      };
     case "MEMORY_RETAINED":
-      return s; // the activity feed shows them (describe.ts); no run state depends on them yet
+      return { ...s, memory: { ...s.memory, retained: ev.data.retained, retainError: ev.data.error ?? null } };
     default: {
       const exhaustive: never = ev;
       return exhaustive;

@@ -17,7 +17,7 @@ export function Health({ services }: { services: readonly ServiceStatus[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const bad = services.filter((s) => s.state === "offline" || s.state === "error").length;
   return (
-    <Section label="System health" index="09" aside={<span style={{ color: bad ? TONE_COLOR.bad : undefined }}>{bad ? `${bad} unavailable` : "all reachable services answering"}</span>}>
+    <Section label="System health" index="10" aside={<span style={{ color: bad ? TONE_COLOR.bad : undefined }}>{bad ? `${bad} unavailable` : "all reachable services answering"}</span>}>
       <ul>
         {services.map((s) => {
           const tone = TONE_OF[s.state];
@@ -56,7 +56,7 @@ export function Health({ services }: { services: readonly ServiceStatus[] }) {
 
 export function Alerts({ alerts }: { alerts: readonly Alert[] }) {
   return (
-    <Section label="Alerts" index="10" aside={<span>{alerts.length ? `${alerts.length} to review` : "none"}</span>}>
+    <Section label="Alerts" index="11" aside={<span>{alerts.length ? `${alerts.length} to review` : "none"}</span>}>
       {alerts.length === 0 ? (
         <div className="border border-dashed border-nc-line px-4 py-6 font-data text-[11px] text-nc-lo">Nothing needs attention.</div>
       ) : (

@@ -45,7 +45,16 @@ export interface RunResult {
   critic_notes: string | null;
   ranked_routes: RankedRoute[];
   limitations: string[];
+  /** What the research memory contributed. Absent on runs from before memory existed. */
+  memory?: MemoryUse;
   audit: string;
+}
+
+/** `applied` is where a recalled lesson marked a step, and so changed the ranking. */
+export interface MemoryUse {
+  recalled: number;
+  /** simulated: the lesson came from a seeded demo record, not a measurement (absent on older runs) */
+  applied: { route_id: number; step: number | null; issue: string; simulated?: boolean }[];
 }
 
 /** GET /api/runs/{id}. */

@@ -156,3 +156,54 @@ describe("system health is what the backend answered", () => {
     assert.match(a.detail, /AiZynthFinder — AiZynthFinder is not loaded/);
   });
 });
+
+describe("dashboard model: memory", () => {
+  const recalled = ev("MEMORY_RECALLED", 900, {
+    count: 3,
+    lessons: 1,
+    memories: [
+      { id: "m1", text: "Route 5 step 4 was flagged by reactiont5.", tags: ["vesyn", "outcome:flagged", "rxn:aa"], score: 0.9 },
+      { id: "m2", text: "The aniline adds twice at 120 g.", tags: ["vesyn", "demo-seed", "outcome:flagged", "rxn:bb"], score: 0.8 },
+      { id: "m3", text: "Route 1 was recommended.", tags: ["vesyn", "outcome:recommended"], score: 0.5 },
+    ],
+  }, { agent: "planner" });
+
+  it("separates a real lesson from a simulated one, and never labels a real one simulated", () => {
+    const result = {
+      ranked_routes: [],
+      limitations: [],
+      memory: {
+        recalled: 3,
+        applied: [
+          { route_id: 1, step: 3, issue: "This transformation was flagged in 1 earlier investigation(s) (simulated demo record): the aniline adds twice." },
+          { route_id: 0, step: 2, issue: "This transformation was flagged in 1 earlier investigation(s): ReactionT5 predicts another product." },
+        ],
+      },
+    } as unknown as RunResult;
+    const m = build([...sampleRun(), recalled], result);
+    assert.equal(m.memory.reported, true);
+    assert.deepEqual(m.memory.applied?.map((a) => [a.routeId, a.simulated]), [[1, true], [0, false]]);
+    assert.deepEqual(m.memory.items.map((i) => [i.id, i.simulated, i.flagged]), [["m1", false, true], ["m2", true, true], ["m3", false, false]]);
+  });
+
+  it("mid-run, lessons not yet applied are unknown, not none", () => {
+    const running = [...sampleRun().filter((e) => e.type !== "PROJECT_COMPLETED"), recalled];
+    const m = build(running);
+    assert.equal(m.memory.pending, true, "the run is still going");
+    assert.equal(m.memory.recalled, 3);
+    assert.equal(m.memory.applied, null, "the critic has not run: unknown, which the panel must not show as 'none applied'");
+  });
+
+  it("does not report memory for a run that never mentioned it (memory off is not zero recalled)", () => {
+    const m = build(sampleRun());
+    assert.equal(m.memory.reported, false);
+    assert.equal(m.memory.recalled, null);
+  });
+
+  it("reports unreachable memory as an error, not as an empty recall", () => {
+    const down = ev("MEMORY_RECALLED", 900, { count: 0, lessons: 0, memories: [], error: "Hindsight recall failed" }, { agent: "planner" });
+    const m = build([...sampleRun(), down]);
+    assert.equal(m.memory.reported, true);
+    assert.equal(m.memory.error, "Hindsight recall failed");
+  });
+});
