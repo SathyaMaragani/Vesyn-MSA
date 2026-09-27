@@ -15,9 +15,10 @@ export function useRunComposer() {
   const offline = health === "offline";
   const ready = health === "online" && !busy && (prompt.trim() !== "" || smiles !== "");
 
-  async function submit(e: React.FormEvent) {
+  /** true when the run started - a caller off the overview can then take the user there to watch it */
+  async function submit(e: React.FormEvent): Promise<boolean> {
     e.preventDefault();
-    if (!ready) return;
+    if (!ready) return false;
     setBusy(true);
     setError(null);
     const r = await launch(prompt, smiles);
@@ -25,7 +26,10 @@ export function useRunComposer() {
     if (r.status === "ok") {
       setPrompt("");
       setSmiles("");
-    } else setError(r.message);
+      return true;
+    }
+    setError(r.message);
+    return false;
   }
 
   return { prompt, setPrompt, smiles, setSmiles, busy, error, offline, ready, submit };

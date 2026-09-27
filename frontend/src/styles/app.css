@@ -232,3 +232,86 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
     animation: none;
   }
 }
+
+/*
+ * The dashboard's gold theme. A scope, not a new palette: the dashboard frame sets these on its root, so every
+ * token-driven colour inside it turns gold while the lab keeps its own. Gold is the accent AND "done", as in the
+ * design; state words and the pulse carry the difference between the two.
+ */
+.nc-dash {
+  --nc-base: 9 9 8;
+  --nc-raised: 15 15 13;
+  --nc-panel: 20 19 16;
+  --nc-panel-2: 29 27 21;
+  --nc-line: 46 42 32;
+  --nc-line-strong: 82 72 48;
+  --nc-hi: 241 235 221;
+  --nc-mid: 178 170 151;
+  --nc-lo: 130 122 104;
+  --nc-cyan: 228 182 92;
+  --nc-ok: 232 198 128;
+  --nc-warn: 234 140 62;
+  --nc-bad: 222 88 72;
+}
+
+@layer components {
+  /* a panel: rounded, hairline gold border, a faint top light */
+  .nc-card {
+    @apply relative min-w-0 rounded-[14px] border border-nc-line;
+    background:
+      radial-gradient(120% 60% at 50% 0%, rgb(var(--nc-cyan) / 0.05), transparent 60%),
+      linear-gradient(180deg, rgb(var(--nc-panel) / 0.92), rgb(var(--nc-raised) / 0.92));
+  }
+  /* the selected thing on the page (the recommended route): lit edge and glow */
+  .nc-card-lit {
+    border-color: rgb(var(--nc-cyan) / 0.7);
+    box-shadow:
+      0 0 0 1px rgb(var(--nc-cyan) / 0.18),
+      0 0 32px -10px rgb(var(--nc-cyan) / 0.45);
+  }
+  .nc-title {
+    @apply whitespace-nowrap font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-nc-hi;
+  }
+  .nc-chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-nc-line-strong px-2 py-[3px] font-data text-[10.5px] text-nc-mid;
+  }
+  .nc-btn {
+    @apply nc-focus inline-flex items-center gap-1.5 rounded-md border border-nc-line-strong px-2.5 py-1 font-data text-[10.5px] text-nc-hi transition-colors hover:border-nc-cyan/70 hover:text-nc-cyan;
+  }
+  /* an agent's glowing ring */
+  .nc-orb {
+    @apply relative flex items-center justify-center rounded-full border-2;
+    border-color: rgb(var(--nc-cyan) / 0.85);
+    background: radial-gradient(circle at 50% 40%, rgb(var(--nc-cyan) / 0.16), rgb(var(--nc-base)) 70%);
+    box-shadow:
+      0 0 18px -2px rgb(var(--nc-cyan) / 0.55),
+      inset 0 0 12px rgb(var(--nc-cyan) / 0.22);
+  }
+  .nc-orb-dim {
+    border-color: rgb(var(--nc-line-strong));
+    background: rgb(var(--nc-raised));
+    box-shadow: none;
+  }
+}
+
+@keyframes nc-orb-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 18px -2px rgb(var(--nc-cyan) / 0.55),
+      inset 0 0 12px rgb(var(--nc-cyan) / 0.22);
+  }
+  50% {
+    box-shadow:
+      0 0 34px 4px rgb(var(--nc-cyan) / 0.75),
+      inset 0 0 18px rgb(var(--nc-cyan) / 0.35);
+  }
+}
+.nc-orb-live {
+  animation: nc-orb-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nc-orb-live {
+    animation: none;
+  }
+}

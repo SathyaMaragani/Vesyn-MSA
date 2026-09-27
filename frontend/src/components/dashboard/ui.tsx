@@ -101,3 +101,74 @@ export function Numeral({ value, label, tone = "idle", size = "lg" }: { value: n
 }
 
 export const PIPE = "font-data text-[10px] uppercase tracking-[0.16em]";
+
+// --- the overview's card vocabulary (the gold redesign) -------------------------------------------------------------------
+
+/** A rounded panel with a title row: the overview's unit. `lit` marks the one selected thing on the page. */
+export function Card({
+  title,
+  aside,
+  children,
+  className,
+  lit = false,
+  bodyClassName,
+}: {
+  title: React.ReactNode;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  lit?: boolean;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className={cx("nc-card flex flex-col", lit && "nc-card-lit", className)}>
+      <div className="flex min-h-[46px] flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pt-3">
+        <h2 className="nc-title">{title}</h2>
+        {aside && <div className="ml-auto flex items-center gap-2">{aside}</div>}
+      </div>
+      <div className={cx("min-h-0 flex-1 px-4 pb-4", bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
+const CHECK_TONE: Record<"ok" | "warn" | "bad", { color: string; mark: string; label: string }> = {
+  ok: { color: "rgb(var(--nc-ok))", mark: "✓", label: "passed" },
+  warn: { color: "rgb(var(--nc-warn))", mark: "!", label: "warning" },
+  bad: { color: "rgb(var(--nc-bad))", mark: "✕", label: "failed" },
+};
+
+/** A tick, a warning or a cross in a ring, then the sentence. */
+export function CheckRow({ tone, text, simulated, size = "md" }: { tone: "ok" | "warn" | "bad"; text: string; simulated?: boolean; size?: "sm" | "md" }) {
+  const t = CHECK_TONE[tone];
+  return (
+    <li className={cx("flex items-start gap-2 leading-snug text-nc-mid", size === "sm" ? "text-[11px]" : "text-[12px]")}>
+      <span aria-label={t.label} className="mt-[1px] inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border text-[9px] font-bold" style={{ color: t.color, borderColor: t.color }}>
+        {t.mark}
+      </span>
+      <span>
+        {text}
+        {simulated && <SimBadge />}
+      </span>
+    </li>
+  );
+}
+
+/** The mark on anything that rests on invented demo history (scripts/seed_memories.py). */
+export function SimBadge() {
+  return (
+    <span title="Seeded demo record: invented lab or preference history, not a measurement" className="ml-1.5 inline-block rounded border border-nc-line-strong px-1 align-[1px] font-data text-[8.5px] uppercase tracking-[0.12em] text-nc-lo">
+      simulated
+    </span>
+  );
+}
+
+/** A small rounded status label: Done, Running, Waiting, Skipped, Failed. */
+export function StatusPill({ tone, children, live = false }: { tone: Tone; children: React.ReactNode; live?: boolean }) {
+  const c = TONE_COLOR[tone];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border px-2 py-[2px] font-data text-[10.5px]" style={{ borderColor: `color-mix(in srgb, ${c} 55%, transparent)`, color: c }}>
+      <Dot tone={tone} pulse={live} />
+      {children}
+    </span>
+  );
+}

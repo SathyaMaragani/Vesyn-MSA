@@ -7,18 +7,11 @@ import { Play } from "lucide-react";
 import { ConnectionPill } from "@/components/layout/ConnectionPill";
 import { DrawStructure } from "@/components/chemistry/DrawStructure";
 import { cx } from "@/components/ui/primitives";
+import { NAV, isActive } from "@/lib/nav";
 import { useNeo } from "@/lib/store/NeoProvider";
 import { PROMPT_PLACEHOLDER, useRunComposer } from "@/lib/store/useRunComposer";
 
-const TABS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/lab", label: "Lab" },
-  { href: "/lab/chemistry", label: "Chemistry" },
-  { href: "/lab/routes", label: "Routes" },
-  { href: "/lab/evidence", label: "Evidence" },
-  { href: "/lab/intelligence", label: "Intelligence" },
-  { href: "/lab/audit", label: "Audit" },
-] as const;
+const TABS = NAV;
 
 function Mark() {
   return (
@@ -101,7 +94,7 @@ export function LabTopBar() {
 
       <nav aria-label="Lab workspaces" className="flex h-8 items-end gap-1 px-3">
         {TABS.map((t) => {
-          const active = t.href === "/lab" ? pathname === "/lab" : t.href === "/dashboard" ? false : pathname.startsWith(t.href);
+          const active = isActive(t.href, pathname);
           return (
             <Link
               key={t.href}

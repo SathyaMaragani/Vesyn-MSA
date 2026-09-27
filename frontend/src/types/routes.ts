@@ -65,6 +65,8 @@ export interface CritiqueIssue {
   severity: Severity;
   source: string;
   issue: string;
+  /** source "memory" only: the lesson came from a seeded demo record, not a measurement */
+  simulated?: boolean;
 }
 
 export interface Critique {
