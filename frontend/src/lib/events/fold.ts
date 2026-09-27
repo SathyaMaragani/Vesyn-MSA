@@ -351,6 +351,9 @@ export function reduceEvent(state: RunView, ev: NeoEvent): RunView {
       };
     case "PROJECT_FAILED":
       return { ...s, phase: "failed", error: ev.data.error };
+    case "MEMORY_RECALLED":
+    case "MEMORY_RETAINED":
+      return s; // the activity feed shows them (describe.ts); no run state depends on them yet
     default: {
       const exhaustive: never = ev;
       return exhaustive;

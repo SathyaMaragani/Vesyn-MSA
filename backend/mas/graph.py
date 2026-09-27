@@ -35,6 +35,7 @@ class RunState(TypedDict, total=False):
     task: str
     target: dict
     tasks: dict
+    memories: list  # recalled from Hindsight by the planner; the critic turns them into lessons
     search: dict
     attempts: list
     profile: dict

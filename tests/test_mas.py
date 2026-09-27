@@ -11,12 +11,13 @@ import os
 import time
 
 os.environ["VESYN_LLM"] = "none"  # deterministic prose; set before the app imports
+os.environ["VESYN_HINDSIGHT_URL"] = "none"  # runs here must not read or write the research memory
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.mas import agents, agui, gateway, store
+from backend.mas import agents, agui, gateway, memory, store
 
 ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
 
@@ -93,6 +94,50 @@ def test_score_prefers_validated_short_routes():
     flagged_route = _route(2, sv="MISMATCH", summary="REVIEW_REQUIRED")
     flagged, _ = agents.score(flagged_route, agents.critique(flagged_route))
     assert good > long_ > flagged
+
+
+def _hashed(route, template_hash):
+    route["tree"]["reactions"][0]["template_hash"] = template_hash
+    return route
+
+
+def _recalled(text, tags, document_id="run_a:t1"):
+    return {"id": text, "text": text, "type": "experience", "document_id": document_id,
+            "tags": tags, "metadata": {}, "score": 0.9}
+
+
+def test_recalled_flag_ranks_down_a_route_the_tools_pass():
+    lessons = memory.lessons([
+        _recalled("Step 1 failed in the lab: no conversion.", ["vesyn", memory.FLAGGED, "rxn:t1"]),
+        # Hindsight can extract several facts from one retained item: still one lesson
+        _recalled("Routes using it should be deprioritized.", ["vesyn", memory.FLAGGED, "rxn:t1"]),
+        _recalled("Route 2 was recommended.", ["vesyn", memory.RECOMMENDED, "rxn:t2"], "run_a:route2"),
+    ])
+    assert list(lessons) == ["t1"] and len(lessons["t1"]) == 1
+
+    remembered, fresh = _hashed(_route(0), "t1"), _hashed(_route(1), "t2")
+    assert agents.critique(remembered)["issues"] == [], "the tools alone pass it"
+    c = agents.critique(remembered, lessons)
+    assert [i["source"] for i in c["issues"]] == ["memory"] and "no conversion" in c["issues"][0]["issue"]
+    assert agents.score(fresh, agents.critique(fresh, lessons))[0] > agents.score(remembered, c)[0]
+
+
+def test_outcome_items_round_trip_into_lessons():
+    good = _hashed(_route(0), "t_good")
+    bad = _hashed(_route(1, sv="MISMATCH", summary="REVIEW_REQUIRED"), "t_bad")
+    same = _hashed(_route(2, fv="MISMATCH", summary="REVIEW_REQUIRED"), "t_bad")  # one item per template
+    final = {
+        "run_id": "run_x", "task": "retrosynthesis", "recommended_route_id": 0,
+        "target": {"canonical_smiles": ASPIRIN, "matched_name": "aspirin"},
+        "recommendation": "Route 0.", "report": "Report.",
+        "ranked_routes": [{**r, "score": 0.5, "critique": agents.critique(r)} for r in (good, bad, same)],
+    }
+    items = memory.outcome_items(final, "find a route to aspirin")
+    assert [i["metadata"]["kind"] for i in items] == ["investigation", "recommended_route", "flagged_step"]
+    assert all(isinstance(v, str) for i in items for v in i["metadata"].values()), "Hindsight metadata is str->str"
+    flagged = items[-1]
+    back = [_recalled(flagged["content"], flagged["tags"], flagged["document_id"])]
+    assert list(memory.lessons(back)) == ["t_bad"]
 
 
 def test_agui_mapping():

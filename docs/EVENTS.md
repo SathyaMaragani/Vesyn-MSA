@@ -45,6 +45,8 @@ slightly out of order over the socket — sort by `seq`.
 | `CRITIQUE_CREATED` | critic | `route_id, counts{high,medium,low,info}, headline, strengths` |
 | `REPLAN_STARTED` | replanner | `reason, previous{attempt,iteration_limit,top_n}, next{…}` |
 | `REPLAN_COMPLETED` | replanner | `next` |
+| `MEMORY_RECALLED` | planner | `count, lessons` (flagged transformations the critic will apply), `memories[≤12]{id, text, tags, score}`, `error` when Hindsight was unreachable |
+| `MEMORY_RETAINED` | evaluator | `retained` (items handed to Hindsight), `kinds{investigation, recommended_route, flagged_step}`, or `retained: 0, error` |
 | `PROJECT_COMPLETED` | — | `project_id, task, recommended_route_id, recommendation, routes` (a null route is only a miss when `task` is retrosynthesis) |
 | `PROJECT_FAILED` | — | `project_id, error` |
 

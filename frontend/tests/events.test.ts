@@ -29,8 +29,8 @@ describe("parseEvent", () => {
     assert.equal(parseEventJson("{not json"), null);
   });
 
-  it("knows exactly the 21 backend event types", () => {
-    assert.equal(EVENT_TYPES.length, 21);
+  it("knows exactly the 23 backend event types", () => {
+    assert.equal(EVENT_TYPES.length, 23);
   });
 });
 

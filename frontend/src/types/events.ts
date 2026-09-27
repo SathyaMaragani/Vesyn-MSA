@@ -23,6 +23,8 @@ export const EVENT_TYPES = [
   "CRITIQUE_CREATED",
   "REPLAN_STARTED",
   "REPLAN_COMPLETED",
+  "MEMORY_RECALLED",
+  "MEMORY_RETAINED",
   "PROJECT_COMPLETED",
   "PROJECT_FAILED",
 ] as const;
@@ -100,6 +102,14 @@ export interface EventDataMap {
   };
   REPLAN_STARTED: { reason: string; previous: SearchBudget; next: SearchBudget };
   REPLAN_COMPLETED: { next: SearchBudget };
+  /** error: Hindsight was unreachable and the run went on without memory. */
+  MEMORY_RECALLED: {
+    count: number;
+    lessons: number;
+    memories: { id: string; text: string; tags: string[]; score: number | null }[];
+    error?: string;
+  };
+  MEMORY_RETAINED: { retained: number; kinds?: Record<string, number>; error?: string };
   PROJECT_COMPLETED: {
     project_id: string;
     task?: Task;

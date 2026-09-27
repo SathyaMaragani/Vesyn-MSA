@@ -62,10 +62,13 @@ if ($LASTEXITCODE -ne 0) {
   $null = Wait-Until { cmd /c "docker info >nul 2>&1"; $LASTEXITCODE -eq 0 } 180 "Docker Desktop"
 }
 Push-Location $root
-cmd /c "docker compose up -d db >nul 2>&1"
+cmd /c "docker compose up -d db hindsight >nul 2>&1"
 Pop-Location
 $dbUp = Wait-Until { (cmd /c "docker inspect -f {{.State.Health.Status}} vesyn_db 2>nul") -eq "healthy" } 120 "vesyn_db"
 $status["Database (vesyn_db :5437)"] = if ($dbUp) { "up" } else { "NOT UP" }
+# Research memory (optional: without it, runs neither recall nor retain lessons)
+$memUp = Wait-Until { Test-Url "http://127.0.0.1:8888/health" } 120 "Hindsight"
+$status["Memory (Hindsight :8888)"] = if ($memUp) { "up - bank UI http://127.0.0.1:9999" } else { "off - runs do not learn" }
 
 # 2. LLM (optional: without it, runs still finish with template summaries) --
 Write-Host "[2/5] Ollama (LLM)" -ForegroundColor Cyan

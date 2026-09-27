@@ -80,6 +80,18 @@ export function describeEvent(ev: NeoEvent): EventLine {
       };
     case "REPLAN_COMPLETED":
       return { tag: "REPLAN", text: `Replan ready: ${budget(ev.data.next)}`, tone: "warn" };
+    case "MEMORY_RECALLED":
+      return ev.data.error
+        ? { tag: "MEMORY", text: `Memory unavailable: ${ev.data.error}`, tone: "warn" }
+        : {
+            tag: "MEMORY",
+            text: `Recalled ${ev.data.count} memories, ${ev.data.lessons} flagged transformation(s) to avoid`,
+            tone: ev.data.lessons ? "warn" : "run",
+          };
+    case "MEMORY_RETAINED":
+      return ev.data.error
+        ? { tag: "MEMORY", text: `Could not retain this run: ${ev.data.error}`, tone: "warn" }
+        : { tag: "MEMORY", text: `Retained ${ev.data.retained} memories for future runs`, tone: "ok" };
     case "PROJECT_COMPLETED":
       return {
         tag: "DONE",

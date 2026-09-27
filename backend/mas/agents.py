@@ -14,7 +14,7 @@ import json
 from collections import Counter
 from contextlib import asynccontextmanager
 
-from backend.mas import events, gateway, intent, llm, store
+from backend.mas import events, gateway, intent, llm, memory, store
 from backend.mas.tools import iter_steps, leaves
 from backend.retrosynthesis.route_assessment import aggregate_route_assessment
 from backend.retrosynthesis.service import MAX_ITERATION_LIMIT, _enrich_with_assessment
@@ -174,6 +174,55 @@ async def narrate(me: Worker, system: str, prompt: str, reason: str) -> dict | N
     return out if out.get("text") else None
 
 
+async def recall(me: Worker, request: str, target: dict) -> list[dict]:
+    """What earlier investigations learned, or []. Missing memory never fails a run."""
+    if memory.url() == "none":
+        return []
+    name = target.get("matched_name") or target["canonical_smiles"]
+    try:
+        out = await me.tool(
+            "hindsight.recall",
+            {"query": f"{request}. Earlier investigations of {name} ({target['canonical_smiles']}) "
+                      "and similar compounds: outcomes, flagged reaction steps, recommended routes."},
+            "Recall what earlier investigations learned before the team starts",
+        )
+    except Exception as err:
+        await me.publish("MEMORY_RECALLED", count=0, lessons=0, memories=[], error=str(err))
+        return []
+    memories = out["memories"]
+    await me.publish(
+        "MEMORY_RECALLED", count=len(memories), lessons=len(memory.lessons(memories)),
+        memories=[{k: m[k] for k in ("id", "text", "tags", "score")} for m in memories[:12]],
+    )
+    return memories
+
+
+async def retain(me: Worker, final: dict, request: str) -> None:
+    """Hand this run's outcome to memory for the next investigation."""
+    if memory.url() == "none":
+        return
+    items = memory.outcome_items(final, request)
+    try:
+        out = await me.tool("hindsight.retain", {"items": items},
+                            "Retain what this investigation learned for future runs")
+    except Exception as err:
+        await me.publish("MEMORY_RETAINED", retained=0, error=str(err))
+        return
+    await me.publish("MEMORY_RETAINED", retained=out["retained"],
+                     kinds=dict(Counter(i["metadata"]["kind"] for i in items)))
+
+
+def memory_used(state: dict, ranked: list[dict]) -> dict:
+    """What memory contributed to this run: how much was recalled, where it changed a ranking."""
+    return {
+        "recalled": len(state.get("memories") or []),
+        "applied": [
+            {"route_id": r["route_id"], "step": i["step"], "issue": i["issue"]}
+            for r in ranked for i in r["critique"]["issues"] if i["source"] == "memory"
+        ],
+    }
+
+
 # --- decisions (pure, unit-tested) -----------------------------------------
 
 def next_search(search: dict) -> dict:
@@ -213,8 +262,8 @@ def judge(routes: list[dict], search: dict) -> dict:
     }
 
 
-def critique(route: dict) -> dict:
-    """Deterministic critique of one validated route."""
+def critique(route: dict, lessons: dict[str, list[dict]] | None = None) -> dict:
+    """Deterministic critique of one validated route, plus recalled lessons (memory.lessons)."""
     issues, strengths = [], []
     forward_missing = False
     structural = []
@@ -259,6 +308,12 @@ def critique(route: dict) -> dict:
                            "issue": "No precedent in the indexed ORD/USPTO data (absent from the index, "
                                     "not proven unknown)."})
 
+        past = (lessons or {}).get(rxn.get("template_hash"))
+        if past:
+            issues.append({**at, "severity": "high", "source": "memory",
+                           "issue": f"This transformation was flagged in {len(past)} earlier "
+                                    f"investigation(s): {past[0]['text']}"})
+
     n = route["number_of_reactions"]
     if n >= 6:
         issues.append({"step": None, "severity": "medium", "source": "route",
@@ -290,6 +345,9 @@ ASSESSMENT_VALUE = {
     "INSUFFICIENT_EVIDENCE": 0.5, "REVIEW_REQUIRED": 0.1,
 }
 HIGH_ISSUE_PENALTY = 0.05
+# ponytail: flat, on top of HIGH_ISSUE_PENALTY, per step matching a recalled flag. It ignores
+# how many investigations agreed and how old they are; weigh by both if lessons start to conflict.
+MEMORY_PENALTY = 0.10
 
 
 def score(route: dict, crit: dict) -> tuple[float, dict]:
@@ -308,6 +366,7 @@ def score(route: dict, crit: dict) -> tuple[float, dict]:
     }
     total = sum(WEIGHTS[k] * v for k, v in parts.items())
     total -= HIGH_ISSUE_PENALTY * crit["counts"].get("high", 0)
+    total -= MEMORY_PENALTY * sum(i["source"] == "memory" for i in crit["issues"])
     return round(max(total, 0.0), 4), {k: round(v, 3) for k, v in parts.items()}
 
 
@@ -350,16 +409,23 @@ async def planner(state: dict) -> dict:
             "UPDATE mas.projects SET target_smiles = %s, updated_at = now() WHERE id = %s",
             smiles, state["project_id"],
         )
+        memories = await recall(me, state["query"], target)
         tasks = {key: await create_task(run_id, agent, title) for key, agent, title in PLANS[task]}
         search = {"attempt": 1, "iteration_limit": state["iteration_limit"], "top_n": state["top_n"]}
         if task == "retrosynthesis":
             await me.say("research", f"Profile {smiles}: descriptors, solubility, nearest approved drugs.")
             await me.say("retro", f"Find routes to {smiles} from purchasable stock: "
                                   f"{search['iteration_limit']} MCTS iterations, top {search['top_n']}.")
+            flagged = memory.lessons(memories)
+            if flagged:
+                await me.say("critic", f"Memory: {len(flagged)} transformation(s) were flagged in earlier "
+                                       "investigations. Mark any route that reuses one.")
         else:
             await me.say("research", f"{_RESEARCH_TITLES[task]} for {smiles}: {intent.TASKS[task]}.")
-        me.output = {"task": task, "target_smiles": smiles, "tasks_created": len(tasks)}
-    return {"task": task, "target": target, "tasks": tasks, "search": search, "attempts": []}
+        me.output = {"task": task, "target_smiles": smiles, "tasks_created": len(tasks),
+                     "memories_recalled": len(memories)}
+    return {"task": task, "target": target, "tasks": tasks, "search": search, "attempts": [],
+            "memories": memories}
 
 
 async def research(state: dict) -> dict:
@@ -513,6 +579,7 @@ REPORT_SYSTEM = (
     "You write the executive summary of an automated retrosynthesis study for a medicinal "
     "chemist. Use only the facts given. State the recommendation (or that there is none), "
     "the evidence behind it, and the main risks, in one paragraph of at most 120 words. "
+    "If lessons recalled from earlier investigations changed the ranking, say which and why. "
     "No markdown, no invented numbers."
 )
 
@@ -532,7 +599,8 @@ def _route_brief(route: dict, crit: dict, **extra) -> dict:
 async def critic(state: dict) -> dict:
     run_id, routes, verdict = state["run_id"], state["routes"], state["verdict"]
     async with working("critic", run_id, state["tasks"]["critique"], "CRITICIZING") as me:
-        critiques = [critique(r) for r in routes]
+        lessons = memory.lessons(state.get("memories") or [])
+        critiques = [critique(r, lessons) for r in routes]
         for c in critiques:
             await me.publish("CRITIQUE_CREATED", route_id=c["route_id"], counts=c["counts"],
                              headline=c["headline"], strengths=c["strengths"])
@@ -594,8 +662,10 @@ async def _answer(state: dict) -> dict:
             "critic_notes": None,
             "ranked_routes": [],
             "limitations": ANSWER_LIMITATIONS,
+            "memory": memory_used(state, []),
             "audit": f"/api/audit?run_id={run_id}",
         }
+        await retain(me, final, state["query"])
         await me.say("planner", answer)
         me.output = {"task": task}
     return {"final": final}
@@ -638,11 +708,13 @@ async def evaluator(state: dict) -> dict:
         else:
             recommendation = f"No route can be recommended: {verdict['reason']}"
 
+        used = memory_used(state, ranked)
         facts = json.dumps({
             "target": state["target"], "verdict": verdict["reason"],
             "attempts": len(state["attempts"]), "recommendation": recommendation,
             "critic_notes": (state.get("critic_notes") or {}).get("text"),
             "top_routes": [_route_brief(r, r["critique"], score=r["score"]) for r in ranked[:3]],
+            "lessons_from_earlier_investigations": used["applied"],
         }, indent=1)
         written = await narrate(me, REPORT_SYSTEM, facts, "Write the chemist-facing summary")
         report = written["text"] if written else (
@@ -665,8 +737,10 @@ async def evaluator(state: dict) -> dict:
             "critic_notes": (state.get("critic_notes") or {}).get("text"),
             "ranked_routes": ranked,
             "limitations": LIMITATIONS,
+            "memory": used,
             "audit": f"/api/audit?run_id={run_id}",
         }
+        await retain(me, final, state["query"])
         await me.say("planner", recommendation)
         me.output = {"recommended_route_id": final["recommended_route_id"]}
     return {"final": final}

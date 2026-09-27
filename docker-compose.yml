@@ -32,5 +32,25 @@ services:
       timeout: 5s
       retries: 10
 
+  hindsight:
+    # Research memory - backend/mas/memory.py. Pinned: the API is still 0.x.
+    image: ghcr.io/vectorize-io/hindsight:0.10.1
+    container_name: vesyn_hindsight
+    environment:
+      # The LLM Hindsight runs to extract facts on retain (recall needs none).
+      # Default: this machine's Ollama - free, no key. Hosted options: .env.example.
+      HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_API_LLM_PROVIDER:-ollama}
+      HINDSIGHT_API_LLM_BASE_URL: ${HINDSIGHT_API_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:-qwen3:14b}
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:-}
+      # Hindsight defaults Groq to service_tier "auto", which free-tier orgs are refused (HTTP 400).
+      HINDSIGHT_API_LLM_GROQ_SERVICE_TIER: ${HINDSIGHT_API_LLM_GROQ_SERVICE_TIER:-on_demand}
+    ports:
+      - "127.0.0.1:8888:8888"  # API
+      - "127.0.0.1:9999:9999"  # Hindsight's own UI: browse the memory bank
+    volumes:
+      - hindsight:/home/hindsight/.pg0
+
 volumes:
   pgdata:
+  hindsight:
