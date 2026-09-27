@@ -26,6 +26,7 @@ from backend.mas.tools import iter_steps
 
 BANK = os.environ.get("VESYN_HINDSIGHT_BANK", "vesyn-research")
 FLAGGED, RECOMMENDED = "outcome:flagged", "outcome:recommended"
+SIMULATED = "demo-seed"  # scripts/seed_memories.py: invented history, never shown as real
 
 
 class MemoryUnavailable(RuntimeError):
@@ -57,6 +58,16 @@ def _post(op: str, body: dict, timeout: float = 30.0) -> dict:
     return r.json()
 
 
+def stored(limit: int = 500) -> set[str]:
+    """document_ids Hindsight has finished extracting facts from. {} before the bank exists."""
+    r = httpx.get(f"{url()}/v1/default/banks/{BANK}/memories/list", params={"limit": limit},
+                  timeout=30)
+    if r.status_code == 404:
+        return set()
+    r.raise_for_status()
+    return {m["document_id"] for m in r.json().get("items", []) if m.get("document_id")}
+
+
 def recall(query: str, max_tokens: int = 2048) -> list[dict]:
     out = _post("recall", {"query": query, "budget": "mid", "max_tokens": max_tokens})
     return [
@@ -70,7 +81,9 @@ def recall(query: str, max_tokens: int = 2048) -> list[dict]:
 
 
 def retain(items: list[dict]) -> dict:
-    # async: Hindsight runs an LLM over every item to extract facts; no run waits on that.
+    # async: Hindsight runs an LLM over every item to extract facts, and its worker paces and
+    # retries that (a rate-limited provider answers 429). No run waits on it; a caller that
+    # needs the memories to be queryable polls stored() instead.
     out = _post("retain", {"items": items, "async": True})
     return {"retained": len(items), "success": out.get("success"), "operation_id": out.get("operation_id")}
 
@@ -95,11 +108,14 @@ def outcome_items(final: dict, request: str) -> list[dict]:
     """The Hindsight retain items for one finished run."""
     run_id, target = final["run_id"], final["target"]
     smiles = target["canonical_smiles"]
-    name = target.get("matched_name") or smiles
+    matched = target.get("matched_name")
+    name = matched or smiles
     tags = ["vesyn", f"target:{smiles}", f"task:{final['task']}"]
     items = [{
-        "content": f"Investigation of {name} ({smiles}), asked as \"{request}\". "
-                   f"{final['recommendation']} {final['report']}",
+        # The report usually restates the recommendation, and an unnamed target would otherwise be
+        # written as "SMILES (SMILES)": both waste the extraction model's context.
+        "content": f"Investigation of {name}{f' ({smiles})' if matched else ''}, asked as "
+                   f"\"{request}\". {final['report']}",
         "context": f"Vesyn {final['task']} investigation outcome",
         "document_id": run_id,
         "tags": tags,

@@ -310,9 +310,10 @@ def critique(route: dict, lessons: dict[str, list[dict]] | None = None) -> dict:
 
         past = (lessons or {}).get(rxn.get("template_hash"))
         if past:
+            simulated = " (simulated demo record)" if memory.SIMULATED in past[0]["tags"] else ""
             issues.append({**at, "severity": "high", "source": "memory",
                            "issue": f"This transformation was flagged in {len(past)} earlier "
-                                    f"investigation(s): {past[0]['text']}"})
+                                    f"investigation(s){simulated}: {past[0]['text']}"})
 
     n = route["number_of_reactions"]
     if n >= 6:
