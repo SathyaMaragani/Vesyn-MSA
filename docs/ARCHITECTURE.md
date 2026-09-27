@@ -48,13 +48,13 @@ tested by their own suites; the agent layer is new and lives in
 
 | id | Name | Does | Tools it may call |
 |---|---|---|---|
-| `planner` | Orchestrator | resolves the target (SMILES or name), creates the 7 tasks, briefs the team | `pubchem.resolve`, `rdkit.represent` |
+| `planner` | Orchestrator | resolves the target (SMILES or name), recalls what earlier investigations learned, creates the 7 tasks, briefs the team | `pubchem.resolve`, `rdkit.represent`, `hindsight.recall` |
 | `research` | Research Agent | descriptors, solubility, nearest approved drugs — runs **in parallel** with retro | `rdkit.represent`, `qsar.solubility`, `chembl.similarity` |
 | `retro` | Retrosynthesis Agent | AiZynthFinder search at the current budget | `aizynthfinder.plan` |
 | `validator` | Validation Agent | per route, per step: RDKit template reversal, ReactionT5 forward prediction, ORD/USPTO precedent; then RamChems' rule-based assessment; checks starting materials | `rdkit.template_validation`, `reactiont5.forward_validation`, `ord.evidence` |
 | `replanner` | Replanner | on a failed verdict, widens the search: 100 → 250 → 500 iterations, +5 routes per attempt, max 3 attempts | — |
-| `critic` | Critic Agent | deterministic critique of each route (severity-ranked issues + strengths); optional LLM notes | `llm.generate` |
-| `evaluator` | Route Evaluator | scores and ranks, persists routes, recommends one (or refuses to), writes the report | `llm.generate` |
+| `critic` | Critic Agent | deterministic critique of each route (severity-ranked issues + strengths), plus a high-severity issue on any step that reuses a transformation a recalled lesson flagged; optional LLM notes | `llm.generate` |
+| `evaluator` | Route Evaluator | scores and ranks, persists routes, recommends one (or refuses to), writes the report, retains the outcome for future runs | `llm.generate`, `hindsight.retain` |
 
 **Verdict** (validator): pass if at least one solved route has no step marked
 `REVIEW_REQUIRED` (a structural or ReactionT5 disagreement). Fail → replanner,
@@ -62,9 +62,33 @@ unless 3 attempts are used or the budget cannot be widened.
 
 **Ranking score** (evaluator) — a heuristic over the available signals, *not a
 feasibility probability*:
-`0.35·assessment + 0.20·structural-match fraction + 0.20·evidence + 0.15·AiZynth state score + 0.10·(1/steps) − 0.05·high-severity issues`,
+`0.35·assessment + 0.20·structural-match fraction + 0.20·evidence + 0.15·AiZynth state score + 0.10·(1/steps) − 0.05·high-severity issues − 0.10·steps matching a recalled lesson`,
 where evidence counts a direct precedent as 1 and a similar one as 0.5 per step.
+A recalled lesson is itself a high-severity issue, so a step that reuses a flagged
+transformation costs 0.15 in all.
 If the top route still needs review, no route is recommended.
+
+## Memory (Hindsight)
+
+What earlier investigations learned is kept in [Hindsight](https://github.com/vectorize-io/hindsight),
+self-hosted beside the database (`docker compose` service `hindsight`, pinned to 0.10.1).
+[`backend/mas/memory.py`](../backend/mas/memory.py) talks to its REST API; `recall` and
+`retain` are governed tools like any other, so both are policy-checked, audited and on
+the event bus (`MEMORY_RECALLED`, `MEMORY_RETAINED`).
+
+| When | Who | What |
+|---|---|---|
+| Before the team starts | Orchestrator | recalls earlier outcomes for the target and similar compounds |
+| While critiquing | Critic | turns recalled flagged steps into lessons, keyed by AiZynthFinder `template_hash`: a route that reuses one is marked and ranked down, even when this run's tools pass it |
+| After deciding | Evaluator | retains the investigation, the recommended route, and each flagged step with its template |
+
+A lesson only changes a decision when the *same transformation* recurs: memories carry
+`outcome:flagged` and `rxn:<template_hash>` tags, which Hindsight returns on the facts it
+extracts. Seeded demo history that no tool could have produced (a scale-up failure, a
+chemist's preference) is tagged `demo-seed`; the critic writes "(simulated demo record)"
+wherever one changes a ranking, and any LLM prose built on one gets a disclaimer appended
+in code, whatever the model wrote. Memory is advisory: an unreachable server is reported
+and the run goes on without it; `VESYN_HINDSIGHT_URL=none` turns it off.
 
 Decision functions (`next_search`, `after_validation`, `judge`, `critique`,
 `score`) are pure and unit-tested in [`tests/test_mas.py`](../tests/test_mas.py).

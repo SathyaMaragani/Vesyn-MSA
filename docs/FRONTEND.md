@@ -97,7 +97,7 @@ GET /api/{projects,runs,agents,tools,graph,audit} ──► lib/api (never throw
 * `lib/events/fold.ts` is the **only** place events become state. It is pure and idempotent: out-of-order and duplicate delivery converge to the same view as folding the sorted stream.
 * **The REST reconcile is required, not optional.** The backend WebSocket can drop an event when concurrent agents commit out of order (`ws_events` filters on `seq > last`, but `seq` is assigned at INSERT). Reproduced with a raw client: 2 of 5 runs lost one `research` event. `GET /api/events` is authoritative; the fold dedupes by `seq`.
 * Agent status shown in the UI: API offline → *unknown*; run selected with events → the fold (an agent with no events did nothing: idle); run selected, no events yet → *unknown*; no run → the `/api/agents` snapshot. An agent whose task failed stays flagged after the backend resets it to IDLE.
-* Events the backend actually emits are used as-is (21 types, `types/events.ts`). There is no `VALIDATION_FAILED`: a failed validation is `VALIDATION_COMPLETED` with assessment `REVIEW_REQUIRED`, followed by `REPLAN_STARTED`.
+* Events the backend actually emits are used as-is (23 types, `types/events.ts`). There is no `VALIDATION_FAILED`: a failed validation is `VALIDATION_COMPLETED` with assessment `REVIEW_REQUIRED`, followed by `REPLAN_STARTED`.
 
 ## Layout
 
@@ -115,24 +115,29 @@ tests/                fold, parser, socket, views, decisions, brief/provenance, 
 
 The product has four modes, and each is its own page: `/` is the cinematic entry, **`/dashboard` is the overview** ("what is happening?"), `/lab` is the immersive 3D facility ("show me"), and `/lab/*` are the detailed analytical views. The journey is entry -> dashboard -> lab -> detail. The dashboard shares only the data layer with the lab (`NeoProvider`: REST, `WS /ws/events`, the event fold); it has its own layout, frame and components, and embeds no 3D facility.
 
-`lib/dashboard/model.ts` is one pure function, `buildDashboard`, of the folded events, the evaluator's package, the agent views and the service probes. Components only render it, so nothing on the page can be invented in the view layer (`tests/dashboard.test.ts`). A value the run does not support is `null` and reads NOT REPORTED; a zero is only ever a real zero.
+`lib/dashboard/model.ts` is one pure function, `buildDashboard`, of the folded events, the evaluator's package, the agent views and the service probes; `lib/dashboard/overview.ts` reads the evaluator's package for the overview's panels (route cards, why this route, timeline, agent details, key evidence). Components only render them, so nothing on the page can be invented in the view layer (`tests/dashboard.test.ts`, and `tests/overview.test.ts`, which checks the panels against the recorded runs in `demo/runs/`). A value the run does not support is `null` and reads NOT REPORTED or "—"; a zero is only ever a real zero.
 
-| Section | Source (all real) |
+The overview wears a gold theme set as a scope (`.nc-dash` in `styles/app.css`) by the dashboard frame, so the lab keeps its own palette. The tabs come from one list, `lib/nav.ts`, shared with the lab's top bar.
+
+| Panel | Source (all real) |
 | --- | --- |
-| **Current research** | Target name from the events, else the molecular formula computed from the resolved SMILES (labelled as such); the target's molecule (`MoleculeStage`, a small self-contained WebGL viewer; drag to turn); project, run, status, current agent. **Progress is the share of workflow stages that have reported completion**, and the page says so: the backend reports no percentage. |
-| **Agent workflow** | The seven stages from each agent's tasks and activity. The replan loop (critic -> replanner -> an alternative route -> validation) is drawn as a branch: dashed and dim until the backend triggers it (the validator routes to the replanner only when no route is usable, up to 3 attempts), then amber, and travelling while a replan is running. |
-| **Live research** | The run's real events, newest first (housekeeping events dropped), each linking to the page that shows it best. |
-| **Agents** | All seven: status, current task, last event, from the roster and the folded events. |
-| **Lab status** | A live 2D plan of the facility, with the departments where they stand in the 3D lab, coloured by agent state. A schematic, not an embedded scene. |
-| **Synthesis intelligence** | Routes generated / validated / rejected / alternatives, and a bar of the validator's verdicts. |
-| **Route preview** | The displayed route's first step from the evaluator's package: real precursors (with the stock check) and the target, drawn from SMILES, on a specimen sheet. Before the package exists it says so and draws nothing. |
-| **Evidence** | Tool calls, distinct sources, the route's precedent coverage, and the backend's own statement that it produces no confidence score. |
-| **System health** | What each service answered: API, event stream, database (the agent store), AiZynthFinder (`/retrosynthesis/health`), evidence index (`/retrosynthesis/evidence/status`), chemical library (`/molecules/stats`). A failure shows the backend's reason; INSPECT shows the endpoint and the full message. |
-| **Alerts** | Failed run, flagged validation, replanning, failed tools, incomplete evidence, no recommendation, unavailable services. Restrained; nothing is a banner. |
+| **Target molecule** | The resolved name (else the formula computed from the SMILES, labelled as such); formula and weight from RDKit; tags that are measured or looked up — logP, TPSA, Lipinski, and "Approved drug (ChEMBL)" only when ChEMBL has the identical molecule. 3D (`MoleculeStage`, drag to turn) or 2D, full screen. Candidate and validated routes, literature sources and evidence coverage from the evaluator's package. |
+| **Multi-agent synthesis engine** | The Orchestrator above the six agents it coordinates, each with its stage state (Done, Running, Waiting, Flagged, Failed, Skipped) from the agent's own tasks and events; the running one pulses and its line is lit. |
+| **Agent details** | Any agent: current task, completed tasks, the tools it called through the gateway, its last action. |
+| **Synthesis pipeline** | The same stages in the order the work flows, target to evaluation. |
+| **Decision timeline** | One line per conclusion, timed from the start of the run. The critic's line separates what the tools found from what earlier investigations flagged, the same split the route cards make. |
+| **Candidate synthesis routes** | Each ranked route: its spine drawn from the real SMILES (starting material first), the backend's verdict, and checks from its own fields — stock, validation, precedent, warnings, and "reuses a transformation flagged in an earlier investigation" (marked SIMULATED when the lesson was seeded). The number shown is the ranking score, labelled a heuristic: the backend produces no probability. |
+| **Why this route?** | What the recommended route has going for it, and each agent's actual verdict (agents do not vote). A refusal shows the evaluator's own reason; a request that was not a synthesis shows the answer. |
+| **Evidence & provenance** | Sources, tool calls, coverage, the starting materials' stock and each step's best precedent with its USPTO patent or dataset. |
+| **Research memory** | Recalled / lessons / retained, the lessons that changed this run's ranking (grouped, since one lesson often marks several routes), and the recalled memories. Mid-run it says what it is waiting for; an unreachable memory server is reported, not shown as zero. |
 
-States: **no run** (`NO ACTIVE RESEARCH RUN`, with a start form; no fake activity), **API offline** (every dependent service reads OFFLINE), **failed run** (the backend's error, the failed stage, no route drawn). A dependent request that fails while the API answers `/health` reads UNAVAILABLE, not offline: an unhandled server error carries no CORS headers, so the browser hides the status.
+Alarms that must not be missed — a failed run, a failed tool, a service down — get one line above the panels; softer notes live in their panels.
 
-**ENTER LAB** (header, lab status, quick access) is a wipe that grows out of the pointer in the lab's own darkness and hands over to the lab's arrival. The chosen project is kept (`sessionStorage`) so the dashboard and the lab agree on which run is current; the lab's tab bar has a Dashboard link back.
+**Search** (`/dashboard/search`) is the full version of the bar at the top of every page (which `/` focuses from anywhere): the composer with the structure editor, questions that work, what Vesyn can answer (the backend's task list), and recent investigations to reopen. A run started anywhere but the overview is watched on the overview.
+
+States: **no run** (nothing is running, and the search is right there; no fake activity), **API offline** (the recorded run in `public/demo/run.json` replays, labelled SIMULATED), **failed run** (the backend's error, no route drawn).
+
+**LAB** is a wipe that grows out of the pointer in the lab's own darkness and hands over to the lab's arrival. The chosen project is kept (`sessionStorage`) so the dashboard and the lab agree on which run is current.
 
 ## The lab: the research facility
 

@@ -9,16 +9,96 @@
   <img alt="Next.js 14" src="https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white&style=flat-square">
   <img alt="three.js" src="https://img.shields.io/badge/three.js-0.185-000000?logo=threedotjs&logoColor=white&style=flat-square">
   <img alt="Postgres with the RDKit cartridge" src="https://img.shields.io/badge/Postgres-RDKit_cartridge-4169E1?logo=postgresql&logoColor=white&style=flat-square">
-  <img alt="272 backend and 170 frontend tests" src="https://img.shields.io/badge/tests-272_backend_·_170_frontend-2ea44f?style=flat-square">
+  <img alt="Hindsight agent memory" src="https://img.shields.io/badge/memory-Hindsight_0.10-D6A45B?style=flat-square">
+  <img alt="276 backend and 185 frontend tests" src="https://img.shields.io/badge/tests-276_backend_·_185_frontend-2ea44f?style=flat-square">
 </p>
 
 <p align="center">
   <img src="docs/images/hero.jpg" alt="The Vesyn entry scene: an oversized molecule with the headline set inside it" width="96%">
 </p>
 
-<h3 align="center"><code>"plan a synthesis of aspirin"</code> → seven agents · 23 audited tool calls · 5 validated routes · ~60 s</h3>
+<h2 align="center">Drug discovery agents that remember what they learned.</h2>
 
-<p align="center"><sub>Every screenshot on this page is one real run, not a mock-up.</sub></p>
+<p align="center">Seven agents plan and validate synthesis routes with real chemistry tools. <a href="https://github.com/vectorize-io/hindsight">Hindsight</a> keeps what<br>
+each investigation learned — which routes it recommended, which transformations failed, and why —<br>
+and the next investigation starts from it instead of from scratch.</p>
+
+<p align="center"><sub>Every screenshot and number on this page comes from a real run, not a mock-up.</sub></p>
+
+---
+
+## <img src="docs/assets/icons/history.svg" height="20" align="top"> &nbsp;Why it remembers
+
+Drug discovery is iterative: a team investigates a compound, rejects routes, finds out on scale-up which steps
+fail, and then meets the same chemistry again on the next compound. A stateless research agent starts every
+question from zero. Vesyn keeps the outcomes, and lets them change the next decision.
+
+```mermaid
+flowchart LR
+    Q["Researcher asks"] --> R["Orchestrator<br/>recalls earlier findings"]
+    R --> T["Agents investigate<br/>search · validate · critique"]
+    T --> L["Critic applies lessons<br/>to routes that reuse a<br/>flagged transformation"]
+    L --> D["Evaluator decides"]
+    D --> K["Evaluator retains<br/>the outcome"]
+    K -. "Hindsight memory bank" .-> R
+```
+
+**What it keeps.** The investigation and its outcome, the route it recommended, and every step that validation
+flagged — keyed by the reaction template, so a lesson attaches to the *same transformation* wherever it recurs,
+in this compound or the next. Knowledge no tool can produce, like a step that failed on scale-up, goes in the same
+way.
+
+**What it changes.** A recalled lesson marks every step that reuses the flagged transformation and costs that route
+0.15 of its ranking score. It changes the order, and — when the lesson hits the leader — the recommendation.
+
+### One memory apart
+
+Same question, same routes, same tools — `find a synthesis route for gefitinib` — asked before and after the bank
+learns that one transformation failed on scale-up:
+
+| | Before | After |
+|---|---|---|
+| Recommended | a 3-step route that couples the aniline onto the quinazolinone · **0.79** | a 3-step route that avoids that coupling · **0.76** |
+| The route that led before | — | ranked down to **0.64**: *"flagged in 1 earlier investigation(s) (simulated demo record): … at 120 g the isolated yield fell from 68% to 31% with bis-arylated impurity as the main by-product"* |
+| Also applied | two transformations ReactionT5 disputed while investigating **erlotinib**, a related EGFR inhibitor, rank two other gefitinib routes down | the same |
+
+<p align="center">
+  <img src="docs/images/memory.png" alt="After the lab report: route 2 recommended; route 1 marked as reusing a transformation flagged in an earlier investigation, labelled simulated; the memory card lists routes 1 and 4 ranked down by the simulated lab record and routes 0 and 3 by a real ReactionT5 disagreement" width="100%">
+</p>
+
+The routes, templates, scores and the erlotinib disagreements are real pipeline output. The scale-up failure is
+invented for the demo — see below.
+
+### Honest about what it remembers
+
+- **Real and simulated are never mixed up.** Seeded history the pipeline could not have produced (a lab outcome, a
+  chemist's preference) is tagged `demo-seed`. The critic writes "(simulated demo record)" wherever one changes a
+  ranking, the dashboard marks it **SIMULATED**, and any LLM prose built on one gets a disclaimer appended in code —
+  whatever the model wrote.
+- **Not known is not none.** Mid-run the memory panel says what it is waiting for; an unreachable memory server is
+  reported, and the run goes on without it rather than failing.
+- **Old lessons are not new evidence.** A step flagged only by memory is not retained again, so a lesson cannot
+  echo itself into a stronger one.
+
+### How Hindsight is wired in
+
+| | |
+|---|---|
+| **Recall** | the Orchestrator, before the team starts — `hindsight.recall` through the tool gateway, so it is policy-checked and audited |
+| **Lessons** | the Critic reads the `outcome:flagged` + `rxn:<template_hash>` tags on recalled facts ([`memory.lessons`](backend/mas/memory.py)) |
+| **Retain** | the Evaluator, after deciding — `hindsight.retain`, asynchronous, one item per outcome with a stable `document_id` |
+| **Events** | `MEMORY_RECALLED` and `MEMORY_RETAINED` drive the dashboard's memory panel and timeline ([docs/EVENTS.md](docs/EVENTS.md)) |
+| **Server** | self-hosted Hindsight 0.10.1 in `docker-compose.yml`; fact extraction on Groq's free tier or a local Ollama model |
+
+```bash
+python scripts/seed_memories.py --reset --phase before   # the bank without the lab report
+# ask "find a synthesis route for gefitinib"              -> the coupling route is recommended
+python scripts/seed_memories.py --phase after            # the lab report, ~20 s to store
+# ask again                                              -> it is ranked down, another route leads
+```
+
+The seeder checks its own work: it scores the recorded routes against the whole bank and refuses to seed one whose
+before and after would agree. The full walkthrough is in [docs/DEMO.md](docs/DEMO.md).
 
 ---
 
@@ -27,9 +107,9 @@
 <table>
 <tr>
 <td width="50%">
-  <img src="docs/images/dashboard.png" alt="Dashboard during a run: the target molecule, workflow stages, the live event feed and agent states" width="100%">
-  <p><b>Dashboard — caught mid-run.</b><br>
-  <sub>Three of six stages reported, validation active, the replan branch armed. That feed is the event stream, not a progress bar.</sub></p>
+  <img src="docs/images/overview.png" alt="The overview: gefitinib with its formula and measured properties, the Orchestrator above the six agents it coordinates, the validation agent's tasks and tools, and the pipeline" width="100%">
+  <p><b>Overview — the team, and what each agent did.</b><br>
+  <sub>Every state comes from the agents' own events; the replanner reads Skipped because nothing needed a second search.</sub></p>
 </td>
 <td width="50%">
   <img src="docs/images/lab.jpg" alt="The 3D research facility, one zone per agent, with a validation alert" width="100%">
@@ -87,10 +167,12 @@ agents that task needs. An unsupported ask fails honestly, listing what it can d
 ## <img src="docs/assets/icons/bolt.svg" height="20" align="top"> &nbsp;Run it
 
 ```bash
-docker compose up -d                                  # Postgres + RDKit cartridge on :5437
+cp .env.example .env                                  # an LLM for Hindsight's fact extraction: Groq key or Ollama
+docker compose up -d                                  # Postgres + RDKit cartridge on :5437, Hindsight on :8888
 conda env create -f environment.yml && conda activate retrosynth
 uvicorn backend.api.main:app --port 8436              # API + agents
 npm install --prefix frontend && npm run dev --prefix frontend
+python scripts/seed_memories.py --reset               # optional: the demo's memory bank (~7 min on Groq)
 ```
 
 <samp>→ <a href="http://localhost:3100">localhost:3100</a></samp> &nbsp;·&nbsp; needs Docker, Python 3.11, Node 20 and ~6 GB of RAM &nbsp;·&nbsp; on Windows `.\start-vesyn.ps1` does all of it
@@ -163,22 +245,26 @@ The chemistry endpoints (`/retrosynthesis/*`, `/search/*`, `/molecules/*`, `/pre
 | `VESYN_LLM` | `ollama:qwen3:14b` | or `anthropic:<model>`, `openai:<model>`, `none` |
 | `VESYN_FORWARD_URL` | `http://localhost:8435/predict` | ReactionT5 service |
 | `VESYN_EVIDENCE_PROVIDER` | `ord` | `null` turns the evidence index off |
+| `VESYN_HINDSIGHT_URL` | `http://127.0.0.1:8888` | the memory server; `none` turns memory off |
+| `VESYN_HINDSIGHT_BANK` | `vesyn-research` | the memory bank runs recall from and retain into |
+| `VESYN_FORWARD_TIMEOUT` | `180` | seconds to wait for ReactionT5, which answers one step at a time |
+| `HINDSIGHT_API_LLM_*` (in `.env`) | Ollama `qwen3:14b` | the LLM Hindsight extracts facts with — see [`.env.example`](.env.example) |
 | `VESYN_CORS_ORIGINS` · `VESYN_CORS_ORIGIN_REGEX` | `*` | browser origins allowed to call the API |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8436` | the API base the browser calls |
 
-**Ports:** `8436` API · `3100` web · `8435` ReactionT5 · `5437` Postgres · `11434` Ollama — off the defaults on
+**Ports:** `8436` API · `3100` web · `8435` ReactionT5 · `5437` Postgres · `8888` Hindsight (`9999` its UI) · `11434` Ollama — off the defaults on
 purpose, so a sibling project can run beside it untouched.
 </details>
 
 <details>
-<summary><b>Tests</b> — 272 backend, 170 frontend</summary>
+<summary><b>Tests</b> — 276 backend, 185 frontend</summary>
 
 ```bash
 conda activate retrosynth
-pytest                       # 272 backend tests
-pytest tests/test_mas.py     # 21 agent-layer tests; the end-to-end ones run the real team on aspirin
+pytest                       # 276 backend tests
+pytest tests/test_mas.py     # 24 agent-layer tests, memory included; the end-to-end ones run the real team on aspirin
 
-npm test --prefix frontend   # 170 tests: the event fold, the socket, the dashboard model
+npm test --prefix frontend   # 185 tests: the event fold, the socket, the dashboard, checked against recorded runs
 npm run typecheck --prefix frontend && npm run lint --prefix frontend
 ```
 
@@ -215,6 +301,8 @@ run can be started.
   API process. Workers and a shared bus come first — see the decisions table in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Not authenticated.** Access is limited only by reachability and a browser-origin allow-list. The review
   deployment is for review; take the Funnel down afterwards.
+- **Not a lab notebook.** The demo's memory bank mixes real pipeline outcomes with seeded history that is labelled
+  simulated everywhere it appears. A real deployment would retain real lab results the same way — none are here.
 
 <details>
 <summary><b>Data, licences and provenance</b> — one of them has ShareAlike strings attached</summary>
@@ -238,7 +326,8 @@ as one research evidence provider among several, not a permanent foundation.
 
 | Document | What is in it |
 | --- | --- |
-| [**Architecture**](docs/ARCHITECTURE.md) | Agents, the graph, the gateway, the API, and what was deliberately left out |
+| [**Architecture**](docs/ARCHITECTURE.md) | Agents, the graph, the gateway, memory, the API, and what was deliberately left out |
+| [**Demo**](docs/DEMO.md) | The three-minute walkthrough: before and after one memory, and the run that refuses to recommend |
 | [**Events**](docs/EVENTS.md) | The contract every interface folds |
 | [**Frontend**](docs/FRONTEND.md) · [**Handoff**](docs/FRONTEND-HANDOFF.md) | The interface, its rules, and how it is wired |
 | [**Data provenance**](docs/data-provenance.md) | Datasets, licences, and the verification behind each |
@@ -246,7 +335,11 @@ as one research evidence provider among several, not a permanent foundation.
 | [**Product plan**](docs/product-plan.md) · [**Roadmap**](docs/ROADMAP.md) | Where this is going |
 | [Retrosynthesis](backend/retrosynthesis/README.md) · [Molrepr](backend/molrepr/README.md) · [QSAR](backend/qsar/README.md) · [Frontend](frontend/README.md) | The services, module by module |
 
+---
+
+<p align="center"><b>Built by</b> Sathya Krishna Maragani · Shriyan Bohra</p>
+
 <br>
 
-<sub>A run like the one above is checked in at <a href="frontend/public/demo/run.json"><code>frontend/public/demo/run.json</code></a> — events, audit log and final package, so the numbers on this page can be read back.<br>
+<sub>The gefitinib run on this page is checked in at <a href="frontend/public/demo/run.json"><code>frontend/public/demo/run.json</code></a> — events, audit log, memory and final package — and is what the site replays, labelled SIMULATED, when the backend is offline.<br>
 No licence has been chosen for this code yet, so default copyright applies. The datasets and models carry their own — see <a href="docs/data-provenance.md">data provenance</a>.</sub>
