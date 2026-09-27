@@ -7,9 +7,13 @@ for a reason you can point at. Then a run that refuses to recommend anything.
 
 ```powershell
 .\start-vesyn.ps1                                              # database, Hindsight, Ollama, ReactionT5, API
-python scripts/seed_memories.py --reset --phase before         # the bank without the lab report (~7 min on Groq)
+python scripts/seed_memories.py --restore                      # the bank without the lab report, in seconds
 npm run dev --prefix frontend                                  # http://localhost:3100
 ```
+
+`--restore` puts back `demo/bank-before.zip`, the seeded "before" bank kept in the repo. Seeding it from
+scratch (`--reset --phase before`) costs one LLM call per memory - around 7 minutes on Groq, longer on a local
+model - which is why the rehearsal path is a restore. After changing the seed, reseed once and `--save` again.
 
 Also run **"Find a synthesis route for erlotinib"** once beforehand: it takes three search attempts (~6 minutes),
 too long to wait for on camera. Scene 4 reopens it from the Search tab.
@@ -20,7 +24,7 @@ Rules for the whole video:
   molecule have returned the same five routes under different numbers.
 - **Say "simulated" when the lab report is on screen.** It is invented demo history; the UI marks it, and so should
   the voice-over.
-- Reseed with `--reset` between rehearsals: every run retains its own outcome, so the bank grows.
+- `--restore` between rehearsals: every run retains its own outcome, so the bank grows as you rehearse.
 
 ## The flow
 

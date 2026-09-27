@@ -2,6 +2,11 @@
 
     python scripts/seed_memories.py --reset          # wipe the bank, then seed
     python scripts/seed_memories.py --dry-run        # print what would be retained
+    python scripts/seed_memories.py --save           # keep this bank as demo/bank-before.zip
+    python scripts/seed_memories.py --restore        # put that bank back, in seconds
+
+Seeding costs one LLM call per memory - minutes each on a local model, metered on a hosted one.
+Seed once, --save, and every rehearsal afterwards is a --restore.
 
 Two kinds of memory go in, and they are not mixed up:
 
@@ -36,6 +41,7 @@ from backend.mas.tools import iter_steps  # noqa: E402
 PENALTY_PER_STEP = HIGH_ISSUE_PENALTY + MEMORY_PENALTY
 
 RUNS = ROOT / "demo" / "runs"
+SNAPSHOT = ROOT / "demo" / "bank-before.zip"
 
 GEFITINIB = "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1"
 
@@ -170,6 +176,67 @@ def reset() -> None:
     print(f"reset bank {memory.BANK}: HTTP {r.status_code}")
 
 
+# --- snapshots: seed once, rehearse many times -------------------------------------------------
+
+def _await_transfer(op_id: str, what: str, timeout: float) -> dict:
+    """Hindsight's transfers are async: poll the operation until it leaves 'pending'."""
+    started = time.time()
+    url = f"{memory.url()}/v1/default/banks/{memory.BANK}/operations/{op_id}"
+    while True:
+        op = httpx.get(url, timeout=30).json()
+        if op.get("status") in ("completed", "succeeded", "failed", "error"):
+            if op["status"] in ("failed", "error"):
+                sys.exit(f"{what} failed: {op.get('error_message')}")
+            return op
+        if time.time() - started > timeout:
+            sys.exit(f"{what} did not finish in {timeout:.0f}s (status {op.get('status')})")
+        print(f"  {what}: {op.get('status')} after {time.time() - started:.0f}s")
+        time.sleep(5)
+
+
+def save(path: Path, timeout: float) -> None:
+    """Write the bank as it stands to a file, so this state can be restored without re-extracting.
+
+    Extraction is one LLM call per memory - minutes on a local model, and metered on a hosted one -
+    which is a long wait to repeat before every rehearsal. A snapshot makes a reset instant.
+    """
+    base = f"{memory.url()}/v1/default/banks/{memory.BANK}"
+    op = httpx.post(f"{base}/transfer/export", timeout=60).json()
+    done = _await_transfer(op["operation_id"], "export", timeout)
+    meta = done.get("result_metadata") or {}
+    download = meta.get("download_url") or meta.get("url") or meta.get("path")
+    if not download:
+        sys.exit(f"the export finished but reported no file to fetch: {json.dumps(meta)[:300]}")
+    if download.startswith("/"):
+        download = f"{memory.url()}{download}"
+    r = httpx.get(download, timeout=300, follow_redirects=True)
+    r.raise_for_status()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(r.content)
+    print(f"saved bank {memory.BANK} -> {path} ({len(r.content) // 1024} KB)")
+
+
+def restore(path: Path, timeout: float) -> None:
+    if not path.exists():
+        sys.exit(f"no snapshot at {path}: run --save once from a seeded bank first")
+    base = f"{memory.url()}/v1/default/banks/{memory.BANK}"
+    reset()
+    # Hindsight's own "restore" mode insists on a bank that does not exist yet, and a deleted bank
+    # is not that - the import then reports it as missing. Recreating it and merging into the empty
+    # bank reaches the same state without depending on how a delete settles.
+    httpx.put(base, json={}, timeout=60)
+    with path.open("rb") as fh:
+        op = httpx.post(f"{base}/transfer/import", params={"mode": "merge"},
+                        files={"file": (path.name, fh, "application/zip")}, timeout=300).json()
+    if "operation_id" not in op:
+        sys.exit(f"import was refused: {json.dumps(op)[:300]}")
+    _await_transfer(op["operation_id"], "import", timeout)
+    found = memory.recall("previously flagged reaction steps and earlier investigation outcomes")
+    lessons = memory.lessons(found)
+    print(f"restored {path.name}: {len(found)} memories, {len(lessons)} flagged transformation(s) "
+          f"-> {[h[:10] for h in lessons]}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--reset", action="store_true", help="delete the bank first (re-runnable seeding)")
@@ -183,10 +250,18 @@ def main() -> None:
                    help="before: everything except the lab report, so a run shows the old "
                         "recommendation. after: the lab report alone, which changes it. "
                         "all (default): the whole bank at once.")
+    p.add_argument("--save", metavar="FILE", nargs="?", const=str(SNAPSHOT),
+                   help=f"write the bank as it stands to FILE (default {SNAPSHOT.name}) and stop")
+    p.add_argument("--restore", metavar="FILE", nargs="?", const=str(SNAPSHOT),
+                   help="replace the bank with FILE and stop - seconds, no extraction, for rehearsals")
     args = p.parse_args()
 
     if memory.url() == "none":
         sys.exit("memory is disabled (VESYN_HINDSIGHT_URL=none)")
+    if args.save:
+        return save(Path(args.save), args.timeout)
+    if args.restore:
+        return restore(Path(args.restore), args.timeout)
     lab = as_simulated([LAB_REPORT])
     baseline = from_runs() + as_simulated(SIMULATED)
     assert_flip(baseline, baseline + lab)

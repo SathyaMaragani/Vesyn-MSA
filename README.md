@@ -100,9 +100,9 @@ invented for the demo — see below.
 | **Server** | self-hosted Hindsight 0.10.1 in `docker-compose.yml`; fact extraction on Groq's free tier or a local Ollama model |
 
 ```bash
-python scripts/seed_memories.py --reset --phase before   # the bank without the lab report
+python scripts/seed_memories.py --restore                # the seeded "before" bank, in seconds
 # ask "find a synthesis route for gefitinib"              -> the coupling route is recommended
-python scripts/seed_memories.py --phase after            # the lab report, ~20 s to store
+python scripts/seed_memories.py --phase after            # add the lab report
 # ask again                                              -> it is ranked down, another route leads
 ```
 
