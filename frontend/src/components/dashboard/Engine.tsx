@@ -1,10 +1,9 @@
 "use client";
 
-// THE MULTI-AGENT SYNTHESIS ENGINE and THE SYNTHESIS PIPELINE: the same seven agents drawn two ways - as the team
-// (the Orchestrator above the six it coordinates) and as the order the work flows in. Every state is the model's
-// stage state, which comes from the agents' own tasks and events; the running one pulses.
+// THE MULTI-AGENT SYNTHESIS ENGINE: the seven agents as a team, the Orchestrator above the six it coordinates.
+// Every state is the model's stage state, which comes from the agents' own tasks and events; the running one pulses.
 import React from "react";
-import { BookOpen, Bot, ChevronRight, FlaskConical, MessageSquareText, Network, RefreshCw, Star, Target } from "lucide-react";
+import { BookOpen, Bot, FlaskConical, MessageSquareText, Network, RefreshCw, Star } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { DashboardModel, Stage, StageState } from "@/lib/dashboard/model";
 import type { Tone } from "@/lib/events/activity";
@@ -119,40 +118,6 @@ export function Engine({ m }: { m: DashboardModel }) {
           })}
         </ol>
       </div>
-    </Card>
-  );
-}
-
-/** The order the work flows in, left to right, starting from the target the Orchestrator resolved. */
-const FLOW: { id: string; name: string; blurb: string; Icon: LucideIcon }[] = [
-  { id: "target", name: "Target", blurb: "Input molecule", Icon: Target },
-  { id: "research", name: "Research", blurb: "Gather information", Icon: BookOpen },
-  { id: "retro", name: "Retrosynthesis", blurb: "Generate routes", Icon: Network },
-  { id: "validator", name: "Validation", blurb: "Check feasibility", Icon: FlaskConical },
-  { id: "critic", name: "Critic", blurb: "Evaluate & critique", Icon: MessageSquareText },
-  { id: "replanner", name: "Replanner", blurb: "Widen the search", Icon: RefreshCw },
-  { id: "evaluator", name: "Evaluation", blurb: "Select best route", Icon: Star },
-];
-
-export function Pipeline({ m }: { m: DashboardModel }) {
-  const stages = byId(m.stages);
-  return (
-    <Card title="Synthesis pipeline" aside={m.hasRun ? <span className="font-data text-[10.5px] text-nc-lo">{m.progress.done} of {m.progress.total} stages reported done</span> : undefined}>
-      <ol className="flex items-start justify-between gap-1 overflow-x-auto pb-1 pt-1">
-        {FLOW.map((f, i) => {
-          const state: StageState | undefined = f.id === "target" ? (m.target.smiles ? "done" : "pending") : stages.get(f.id)?.state;
-          return (
-            <React.Fragment key={f.id}>
-              {i > 0 && <ChevronRight aria-hidden className={cx("mt-3.5 h-4 w-4 shrink-0", lit(state) ? "text-nc-cyan" : "text-nc-line-strong")} />}
-              <li className="flex min-w-[96px] flex-col items-center text-center" title={stages.get(f.id)?.detail ?? undefined}>
-                <Orb Icon={f.Icon} state={state} size={44} />
-                <div className={cx("mt-2 text-[12.5px] font-medium", state === "skipped" ? "text-nc-lo" : "text-nc-hi")}>{f.name}</div>
-                <div className="text-[10.5px] text-nc-lo">{state === "skipped" ? "Not needed" : f.blurb}</div>
-              </li>
-            </React.Fragment>
-          );
-        })}
-      </ol>
     </Card>
   );
 }

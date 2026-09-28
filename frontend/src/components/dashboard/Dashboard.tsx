@@ -2,9 +2,10 @@
 
 // THE OVERVIEW: "what is this run, and what did the agents conclude?"
 //
-// Three columns: the target and its routes on the left, the team and its reasoning in the middle, one agent, the
-// timeline and the research memory on the right. Every figure comes from lib/dashboard/model.ts (the run's state)
-// and lib/dashboard/overview.ts (the evaluator's package, read for these panels); a component here only renders.
+// Three columns: the target and its routes on the left, the team and its reasoning in the middle, and on the right
+// what this run learned from earlier ones, then the agent and the timeline. Every figure comes from
+// lib/dashboard/model.ts (the run's state) and lib/dashboard/overview.ts (the evaluator's package, read for these
+// panels); a component here only renders.
 import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
@@ -12,7 +13,7 @@ import { shownRoute } from "@/components/facility/facilityState";
 import { buildDashboard } from "@/lib/dashboard/model";
 import { agentDetail, keyEvidence, routeCards, targetFacts, timeline, whyRoute } from "@/lib/dashboard/overview";
 import { useNeo, useRunResult } from "@/lib/store/NeoProvider";
-import { Engine, Pipeline } from "./Engine";
+import { Engine } from "./Engine";
 import { Memory } from "./Memory";
 import { CandidateRoutes, Provenance, WhyThisRoute } from "./Routes";
 import { AgentDetails, Timeline } from "./SidePanels";
@@ -67,9 +68,6 @@ export function Dashboard() {
           <div className="xl:col-span-5">
             <Engine m={m} />
           </div>
-          <div className="xl:col-span-9">
-            <Pipeline m={m} />
-          </div>
           <div className="xl:col-span-6">
             <CandidateRoutes m={m} routes={routes} />
           </div>
@@ -80,9 +78,9 @@ export function Dashboard() {
         </div>
 
         <div className="flex flex-col gap-5 xl:col-span-3">
+          <Memory m={m} />
           <AgentDetails m={m} detailOf={detailOf} />
           <Timeline items={events} running={m.phase === "running"} />
-          <Memory m={m} />
         </div>
       </div>
     </div>
