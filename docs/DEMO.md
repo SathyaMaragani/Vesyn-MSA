@@ -1,7 +1,8 @@
-# The demo: one memory apart
+# The demo: three memories apart
 
-Three minutes. The same question asked twice, with one memory added in between, and the recommendation changes
-for a reason you can point at. Then a run that refuses to recommend anything.
+Three minutes. The same question asked twice, with three lab outcomes arriving in between, and the
+recommendation changes from a three-step route to a two-step one for a reason you can point at. Then a run that
+refuses to recommend anything.
 
 ## Before recording
 
@@ -12,8 +13,15 @@ npm run dev --prefix frontend                                  # http://localhos
 ```
 
 `--restore` puts back `demo/bank-before.zip`, the seeded "before" bank kept in the repo. Seeding it from
-scratch (`--reset --phase before`) costs one LLM call per memory - around 7 minutes on Groq, longer on a local
+scratch (`--reset --phase before`) costs one LLM call per memory - around 4 minutes on Groq, longer on a local
 model - which is why the rehearsal path is a restore. After changing the seed, reseed once and `--save` again.
+
+**The baseline carries no lesson about this target.** It holds both recorded investigations and the team's
+process notes, but not the recorded runs' flagged steps, so the "before" ranking is the agents' own judgement and
+the memory panel reads *0 applied*. That is deliberate, and `from_runs()` says why: a flagged step is a step
+ReactionT5 disputed, and ReactionT5 runs again on the new target, so live validation reaches the same verdict
+without any memory at all. Probing five relatives of gefitinib found no target whose recommendation a recalled
+computational flag changed.
 
 Also run **"Find a synthesis route for erlotinib"** once beforehand: it takes three search attempts (~8 minutes),
 too long to wait for on camera. Scene 4 reopens it from the Search tab.
@@ -41,8 +49,12 @@ Rules for the whole video:
 - **Say "simulated" when the lab report is on screen.** It is invented demo history; the UI marks it, and so should
   the voice-over.
 - `--restore` between rehearsals: every run retains its own outcome, so the bank grows as you rehearse. The
-  first gefitinib question alone took the bank from 4 lessons to 7 - the flip still happens, but the counts on
-  screen will not match a previous take.
+  recalled count climbs (16 before, 34 after two takes); the lessons and the scores do not, because a gefitinib
+  run has no step for the tools to flag.
+- **Wait for `recall check: ... 3 flagged transformation(s)` before asking the second question.** If extraction
+  is still queued behind a rate limit the seeder keeps polling and says so; asking early gives a smaller drop
+  (one take landed 2 of 3 memories and the old favourite fell to 0.6446 instead of 0.4946). The flip still
+  happens - the magnitude does not.
 
 ## The flow
 
@@ -50,25 +62,41 @@ Rules for the whole video:
 |---|---|---|
 | 0:00–0:20 | Overview, nothing selected | Drug discovery is iterative. Teams investigate a compound, reject routes, learn on scale-up which steps fail — then meet the same chemistry again. Most AI agents start every question from zero. |
 | 0:20–0:40 | Search tab → *Find a synthesis route for gefitinib* | Vesyn is seven agents that plan and validate synthesis routes with real chemistry tools — and remember what they learned, in Hindsight. |
-| 0:40–1:10 | Overview while it runs: engine, timeline | The Orchestrator recalls earlier findings before anyone starts. It already knows two transformations ReactionT5 disputed when we investigated erlotinib, a related EGFR inhibitor. |
-| 1:10–1:30 | Result: the recommended route, **Why this route?** | It recommends a three-step route that couples the aniline directly onto the quinazolinone. Every step validated. |
-| 1:30–1:50 | Terminal: `python scripts/seed_memories.py --phase after` (~20 s on Groq, ~5 min on a local model — cut the wait) | Now the lab reports back — a *simulated* record for this demo: that coupling collapsed on scale-up, 68% to 31%, the aniline adding twice. We retain it. |
-| 1:50–2:20 | Search → the same question again | Same question. Same routes, same tools. |
-| 2:20–2:40 | Result: route cards, memory card, timeline | The coupling route is ranked down, 0.79 to 0.64, and the memory card says why — flagged in an earlier investigation, marked simulated. A route that avoids that step now leads. The agent didn't retrieve a conversation; an earlier outcome changed this decision. |
+| 0:40–1:05 | Result: **Why this route?**, memory card | It recommends a three-step route that couples the aniline onto the quinazolinone, scoring 0.79. The memory card says sixteen memories recalled and **none of them applied** — nothing it has ever seen bears on these transformations. This is the system's own judgement. |
+| 1:05–1:25 | Terminal: `python scripts/seed_memories.py --phase after` (~60 s) | Now process chemistry reports back — three *simulated* records for this demo. The coupling collapsed at 120 g, 68% to 31%. The acetate protecting group took the morpholine chain with it. The demethylation cleaved the side chain too. |
+| 1:25–1:50 | Search → the same question again | Same question. Same five routes, same tools. |
+| 1:50–2:25 | Result: route cards, memory card | The three-step route has gone from **0.79 to 0.49** and carries a red mark: *reuses a transformation flagged in an earlier investigation*, labelled SIMULATED. Four of the five routes are ranked down. The one that survives is the **two-step** route — two tiles instead of four — because it never touches any of them. It reaches the same bond by displacing the 4-chloroquinazoline, which is the route industry actually uses. |
+| 2:25–2:40 | Memory card, **Why this route?** | Nothing about the chemistry changed. The tools validated these same five routes both times. What changed is that the team's experience is now in the bank, and it moved the answer. |
 | 2:40–2:50 | Search tab → Recent → the erlotinib run | And when every route fails validation, it says so. Three search attempts, fifteen routes, no recommendation — instead of a confident wrong answer. |
+
+## The verified numbers
+
+Measured over two clean cycles (`--restore` → ask → `--phase after` → ask). Route *numbers* are assigned per
+run, so name routes by their chemistry on camera; the scores and the ranking are what repeat.
+
+| Route | Steps | Before | After | Why |
+|---|---|---|---|---|
+| quinazolinone coupling + acetate | 3 | **0.7946** ← recommended | **0.4946** | two flagged steps |
+| the same, other O-alkylation | 3 | 0.7946 | 0.4946 | two flagged steps |
+| **4-chloroquinazoline displacement** | **2** | 0.7791 | **0.7791** ← recommended | flagged by none |
+| demethylation route | 3 | 0.7613 | 0.6113 | one flagged step |
+| demethylation route, variant | 3 | 0.7613 | 0.6113 | one flagged step |
+
+Memory panel: **16 recalled · 0 applied** before, **34 recalled · 6 applied, all SIMULATED** after.
 
 The erlotinib run also recalls the flags it recorded the *last* time it was investigated, so every route there carries a memory mark and the scores sit near 0.16. That is the mechanism working, not a fault — say so if it is on screen, or stay on the refusal.
 | 2:50–3:00 | Overview | Investigate, remember, recall, adapt. |
 
 ## What each screen should show
 
-**First gefitinib run (before):** Research memory — lessons recalled, two routes ranked down by the erlotinib
-disagreements, *not* the leader. Why this route? — the coupling route selected.
+**First gefitinib run (before):** Research memory — 16 recalled, **0 applied**, "Nothing recalled applied to these
+routes". Why this route? — the coupling route selected at 0.7946, with the two-step route visible just below it.
 
-**Second gefitinib run (after):** Candidate routes — the former leader carries *"Reuses a transformation flagged in
-an earlier investigation"* with a **SIMULATED** badge. Research memory — "Routes … ranked down · SIMULATED" with the
-scale-up text. Why this route? — *"Avoids a transformation flagged in an earlier investigation."* Decision timeline —
-*"Critiqued 5 routes: no critical issues, N steps flagged by earlier investigations."*
+**Second gefitinib run (after):** Candidate routes — the former leader at 0.4946 carries *"Reuses a transformation
+flagged in an earlier investigation"* with a **SIMULATED** badge, and so do three others. Research memory — the
+ranked-down routes, each **SIMULATED**, with the scale-up text. Why this route? — *"Avoids a transformation flagged
+in an earlier investigation."* Decision timeline — *"Critiqued 5 routes: no critical issues, 6 steps flagged by
+earlier investigations."*
 
 **Erlotinib:** Why this route? — "None recommended", with the evaluator's own reason.
 

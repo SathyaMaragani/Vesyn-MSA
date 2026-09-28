@@ -45,28 +45,63 @@ SNAPSHOT = ROOT / "demo" / "bank-before.zip"
 
 GEFITINIB = "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1"
 
-# The transformation the lab report condemns: coupling the aniline onto the quinazolin-4(3H)-one
-# directly ([c:1]1([N:7][cH3:8])... >> O=[c:1]1... . [N:7][cH3:8]). It carries the recorded
-# gefitinib run's top two routes; the 2-step route reaches the same C-N bond through the
-# 4-chloroquinazoline instead, which is the route industrial syntheses of gefitinib use.
-# Checked against demo/runs/gefitinib.json - assert_flip() fails if the routes stop matching.
+# The three transformations the lab reports condemn, as AiZynthFinder hashes them. Checked against
+# demo/runs/gefitinib.json, where the five routes divide by exactly these steps - assert_flip()
+# fails loudly if a re-recorded run stops matching:
+#
+#   QUINAZOLINONE_COUPLING  aniline onto the quinazolin-4(3H)-one   the two 0.7946 routes
+#   ACETATE_PROTECTION      the phenol carried as its acetate       the same two routes
+#   DEMETHYLATION           the phenol unmasked from its methyl ether   one 0.7613 route
+#
+# None of them is in the 2-step route, which reaches the same C-N bond by displacing the
+# 4-chloroquinazoline - the route industrial syntheses of gefitinib actually use. So the three
+# reports between them condemn the top two routes and leave the short one standing.
 QUINAZOLINONE_COUPLING = "870cb2d9c7fa2b66fd4b1aac4c7921b32e389fa8bfbe2c4b222789c602f13bd0"
+ACETATE_PROTECTION = "ba9cf922694c22786e94d6562607c5b880cd83d9f9ace2090b7b33f921f84f06"
+DEMETHYLATION = "aaca3370f94c9d26c15a5b89a303163d4c8dbb3725b65c3755e36aedda74170f"
 
-# The one memory that changes the recommendation, and the reason it is honest to invent it:
-# whether a reaction survives scale-up is not in RDKit, ReactionT5 or the literature index.
-# Retained separately (--phase after) so a demo can show the decision before and after it.
-LAB_REPORT = {
-    "content": "Process chemistry ran the gefitinib route that couples the aniline directly onto "
-               "the quinazolin-4(3H)-one. At 120 g the isolated yield fell from 68% to 31%, with "
-               "the bis-arylated impurity as the main by-product: the aniline adds twice once the "
-               "batch is hot for longer. The step was abandoned in favour of displacing the "
-               "4-chloroquinazoline. Deprioritise routes that form this bond this way.",
-    "context": "process chemistry outcome, gefitinib programme",
-    # FLAGGED is what makes memory.lessons() treat this as a transformation to avoid; the rxn tag
-    # is which transformation. Without both it is retained and recalled but changes no decision.
-    "tags": [f"target:{GEFITINIB}", memory.FLAGGED, f"rxn:{QUINAZOLINONE_COUPLING}"],
-    "metadata": {"kind": "scale_up_outcome", "compound": "gefitinib"},
-}
+# The memories that change the recommendation, and the reason it is honest to invent them: whether
+# a reaction survives scale-up is not in RDKit, ReactionT5 or the literature index, and re-running
+# those tools on a new target will never produce it. That is the argument for having memory at all,
+# so the demo's turning point has to be knowledge of exactly this kind. Retained separately
+# (--phase after) so a demo can show the same question decided before and after they arrive.
+#
+# They are invented. Every one is tagged demo-seed, reads SIMULATED in the UI, and the critic and
+# the written report say "simulated demo record" wherever one changes a ranking.
+LAB_REPORTS = [
+    {
+        "content": "Process chemistry ran the gefitinib route that couples the aniline directly onto "
+                   "the quinazolin-4(3H)-one. At 120 g the isolated yield fell from 68% to 31%, with "
+                   "the bis-arylated impurity as the main by-product: the aniline adds twice once the "
+                   "batch is hot for longer. The step was abandoned in favour of displacing the "
+                   "4-chloroquinazoline. Deprioritise routes that form this bond this way.",
+        "context": "process chemistry outcome, gefitinib programme",
+        # FLAGGED is what makes memory.lessons() treat this as a transformation to avoid; the rxn tag
+        # is which transformation. Without both it is retained and recalled but changes no decision.
+        "tags": [f"target:{GEFITINIB}", memory.FLAGGED, f"rxn:{QUINAZOLINONE_COUPLING}"],
+        "metadata": {"kind": "scale_up_outcome", "compound": "gefitinib"},
+    },
+    {
+        "content": "Carrying the phenol as its acetate through the quinazoline sequence cost more than "
+                   "it protected: the acetate survived the coupling but the basic deprotection also "
+                   "opened the morpholine-bearing side chain, and two of three pilot batches finished "
+                   "below 40% over the protect-deprotect pair. Routes that install this acetate should "
+                   "be deprioritised in favour of ones that never mask the phenol.",
+        "context": "process chemistry outcome, quinazoline series",
+        "tags": [f"target:{GEFITINIB}", memory.FLAGGED, f"rxn:{ACETATE_PROTECTION}"],
+        "metadata": {"kind": "scale_up_outcome", "compound": "gefitinib"},
+    },
+    {
+        "content": "Unmasking the phenol from its methyl ether needs boron tribromide, and the "
+                   "morpholinopropoxy chain does not survive it: the demethylation cleaved the "
+                   "morpholine ether as well, and the run was stopped after the second attempt gave "
+                   "the same pair of products. Deprioritise routes that reveal this phenol by "
+                   "demethylation.",
+        "context": "process chemistry outcome, quinazoline series",
+        "tags": [f"target:{GEFITINIB}", memory.FLAGGED, f"rxn:{DEMETHYLATION}"],
+        "metadata": {"kind": "scale_up_outcome", "compound": "gefitinib"},
+    },
+]
 
 # Invented history: what a lab learns and a chemist prefers, which no tool here can see.
 SIMULATED = [
@@ -112,13 +147,27 @@ SIMULATED = [
 
 
 def from_runs() -> list[dict]:
-    """The real memories: what each recorded run concluded, in the bank's own schema."""
+    """The real memories: what each recorded run concluded, in the bank's own schema.
+
+    Their flagged steps are left out on purpose, so the demo's baseline carries history without
+    carrying a verdict on this target's chemistry. Erlotinib's flagged steps would otherwise rank
+    two gefitinib routes down before the demo has begun - including the short one the lab reports
+    are meant to promote - and the "before" ranking would already be a memory-shaped answer.
+
+    They are also the least interesting kind of lesson to demonstrate: a flagged step is a step
+    ReactionT5 disputed, and ReactionT5 runs again on the new target, so live validation reaches
+    the same verdict without any memory at all. Probing five relatives of gefitinib (lapatinib,
+    icotinib, neratinib, dacomitinib, vandetanib) found no target whose recommendation a recalled
+    computational flag changed: it either hit routes that were already losing, or hit every
+    contender at once.
+    """
     if not RUNS.is_dir():
         sys.exit(f"no recorded runs in {RUNS} - run scripts/record_demo_runs.py first")
     items = []
     for path in sorted(RUNS.glob("*.json")):
         run = json.loads(path.read_text())
-        items += memory.outcome_items(run["result"], run["request"])
+        items += [i for i in memory.outcome_items(run["result"], run["request"])
+                  if i["metadata"]["kind"] != "flagged_step"]
     if not items:
         sys.exit(f"{RUNS} has no usable runs")
     return items
@@ -262,7 +311,7 @@ def main() -> None:
         return save(Path(args.save), args.timeout)
     if args.restore:
         return restore(Path(args.restore), args.timeout)
-    lab = as_simulated([LAB_REPORT])
+    lab = as_simulated(LAB_REPORTS)
     baseline = from_runs() + as_simulated(SIMULATED)
     assert_flip(baseline, baseline + lab)
     items = lab if args.phase == "after" else (
@@ -310,9 +359,12 @@ def main() -> None:
           f"-> {[h[:10] for h in lessons]}")
     if args.phase == "before":
         return
-    if QUINAZOLINONE_COUPLING not in lessons:
-        sys.exit("seeded, but the lab report did not come back as a lesson on that transformation - "
-                 "the demo's recommendation would not change. Check the bank at :9999.")
+    missing_lessons = [h[:10] for h in (QUINAZOLINONE_COUPLING, ACETATE_PROTECTION, DEMETHYLATION)
+                       if h not in lessons]
+    if missing_lessons:
+        sys.exit(f"seeded, but {missing_lessons} did not come back as lesson(s) on those "
+                 f"transformations - the demo's recommendation would not change as expected. "
+                 f"Hindsight extracts the tags from each item, so check the bank at :9999.")
 
 
 if __name__ == "__main__":
