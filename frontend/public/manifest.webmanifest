@@ -1,0 +1,22 @@
+{
+  "name": "VESYN — AI Research Assistant",
+  "short_name": "VESYN",
+  "description": "A persistent-memory multi-agent research assistant for drug discovery: ask a question, watch the agents work, and see what VESYN remembers.",
+  "id": "/assistant",
+  "start_url": "/assistant",
+  "scope": "/assistant",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f9f8",
+  "theme_color": "#f5f9f8",
+  "categories": ["productivity", "education", "medical"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Ask VESYN", "url": "/assistant/research" },
+    { "name": "What VESYN remembers", "url": "/assistant/memory" }
+  ]
+}

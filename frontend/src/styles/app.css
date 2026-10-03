@@ -302,3 +302,145 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
     animation: none;
   }
 }
+
+/*
+ * ---- the assistant (mobile) ----------------------------------------------------------------------
+ *
+ * Light assistant palette: porcelain surfaces, slate text and deep teal actions.
+ * Status colours retain their meaning and remain legible on white surfaces.
+ */
+.nc-mobile-theme,
+.nc-mobile {
+  color-scheme: light;
+  --nc-base: 245 249 248; /* #F5F9F8 */
+  --nc-raised: 255 255 255;
+  --nc-panel: 255 255 255;
+  --nc-panel-2: 235 244 241;
+  --nc-line: 215 228 224;
+  --nc-line-strong: 168 193 184;
+  --nc-hi: 29 51 57; /* slate */
+  --nc-mid: 65 87 94;
+  --nc-lo: 91 113 117;
+  --nc-cyan: 18 108 103; /* deep teal */
+  --nc-ok: 43 111 79;
+  --nc-warn: 139 92 25;
+  --nc-bad: 177 63 62;
+  --nc-copper: 157 91 55;
+  --nc-stone: 92 116 112;
+}
+.nc-mobile {
+  overflow-wrap: anywhere;
+  /* the phone's own chrome heights, so screens can reserve exactly what the nav and bar take */
+  --m-nav: 72px;
+  --m-bar: 64px;
+}
+
+@layer components {
+  /* a surface: the card vocabulary of the laptop app, at phone radius */
+  .m-card {
+    @apply relative min-w-0 rounded-2xl border border-nc-line;
+    background: rgb(var(--nc-panel));
+    box-shadow: 0 2px 6px rgb(29 51 57 / 0.025);
+  }
+  /* the one recommended thing on screen */
+  .m-card-lit {
+    border-color: rgb(var(--nc-cyan) / 0.4);
+    box-shadow: 0 4px 18px rgb(29 51 57 / 0.07);
+  }
+  /* every touch target: 44px is the floor, not the aim */
+  .m-tap {
+    @apply nc-focus inline-flex min-h-[44px] min-w-[44px] items-center justify-center;
+  }
+  .m-label {
+    @apply font-ui text-[11px] font-semibold tracking-[0.025em] text-nc-lo;
+  }
+  .m-chip {
+    @apply m-tap gap-1.5 rounded-xl border border-nc-line bg-nc-raised px-3.5 text-[13px] text-nc-hi hover:border-nc-cyan/40 active:bg-nc-cyan/10;
+  }
+  .m-primary {
+    @apply m-tap gap-2 rounded-xl bg-nc-cyan px-4 font-ui text-[13px] font-semibold text-white hover:brightness-95 active:opacity-80 disabled:bg-nc-line disabled:text-nc-lo;
+  }
+}
+
+/* The phone shell owns the viewport; only the screen scrolls, so the nav never drifts. */
+.m-root {
+  min-height: 100svh;
+  padding-bottom: calc(var(--m-nav) + env(safe-area-inset-bottom));
+}
+
+.m-nav-bar {
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 24px rgb(29 51 57 / 0.045);
+}
+
+.m-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.nc-mobile .nc-focus:focus-visible {
+  outline: 2px solid rgb(var(--nc-cyan));
+  outline-offset: 3px;
+}
+
+.m-demo-story {
+  background: rgb(var(--nc-panel-2));
+  border-color: rgb(var(--nc-cyan) / 0.18);
+  box-shadow: none;
+}
+
+.m-demo-story [role="status"] > p:first-child {
+  color: rgb(var(--nc-cyan));
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+/* A bottom sheet: up from the bottom edge, dismissed by the backdrop or the handle. */
+@keyframes m-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes m-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.m-sheet {
+  animation: m-sheet-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.m-backdrop {
+  animation: m-fade 0.2s ease-out both;
+}
+
+/* Memory is the one thing that gets a halo, because it is the thing that changed the answer. */
+@keyframes m-memory-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--nc-cyan) / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgb(var(--nc-cyan) / 0);
+  }
+}
+
+.m-memory-pulse {
+  animation: m-memory-pulse 2.4s ease-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-sheet,
+  .m-backdrop,
+  .m-memory-pulse {
+    animation: none;
+  }
+}

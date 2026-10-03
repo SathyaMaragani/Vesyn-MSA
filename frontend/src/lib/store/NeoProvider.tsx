@@ -27,6 +27,7 @@ import type { ApiHealth, ApiResult, LoadState, SocketStatus } from "@/types/api"
 import type { AuditCall, AuditEntry, GraphDescription, ToolInfo } from "@/types/audit";
 import type { NeoEvent } from "@/types/events";
 import type { Project, ProjectCreated, RunRecord } from "@/types/runs";
+import { isSnapshot, readInvestigations, saveInvestigation } from "@/lib/mobile/cache";
 
 /**
  * A finished run exactly as the API returned it, recorded by scripts/record-demo.mjs. Shown,
@@ -101,6 +102,9 @@ export interface NeoContextValue {
   rejectedFrames: number;
   /** Non-null while the UI shows the recorded run because the API is offline. Label it SIMULATED. */
   demo: DemoSnapshot | null;
+  demoStage: "before" | "after" | null;
+  showDemo: (stage: "before" | "after" | null) => Promise<void>;
+  cached: boolean;
   /** Start a run from a plain-words prompt and/or a drawn structure (which wins over any molecule the prompt names). */
   launch: (prompt: string, smiles?: string) => Promise<ApiResult<ProjectCreated>>;
   selectProject: (projectId: string) => Promise<void>;
@@ -109,7 +113,7 @@ export interface NeoContextValue {
 
 const NeoContext = createContext<NeoContextValue | null>(null);
 
-export function NeoProvider({ children }: { children: React.ReactNode }) {
+export function NeoProvider({ children, mobile = false }: { children: React.ReactNode; mobile?: boolean }) {
   const [health, setHealth] = useState<ApiHealth>("checking");
   const [socket, setSocket] = useState<SocketStatus>("idle");
   const [roster, setRoster] = useState<AgentSnapshot[] | null>(null);
@@ -121,6 +125,10 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
   const [runRecord, setRunRecord] = useState<LoadState<RunRecord>>({ state: "empty" });
   const [rejectedFrames, setRejectedFrames] = useState(0);
   const [demo, setDemo] = useState<DemoSnapshot | null>(null);
+  const [demoStage, setDemoStage] = useState<"before" | "after" | null>(null);
+  const [cached, setCached] = useState(false);
+  const demoStageRef = useRef<"before" | "after" | null>(null);
+  const snapshotRequest = useRef(0);
   const everOnline = useRef(false);
   const [liveRun, dispatch] = useReducer(runReducer, null, () => emptyRun(null));
   const [cursor, setCursorState] = useState<number | null>(null);
@@ -156,20 +164,22 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
 
   // --- reference data, loaded whenever the API (re)appears ---------------------
   const refreshProjects = useCallback(() => {
+    if (demoStageRef.current) return;
     void listProjects().then((r) => {
+      if (demoStageRef.current) return;
       if (r.status === "ok") setProjects(r.data.length ? { state: "ok", data: r.data } : { state: "empty" });
-      else if (r.status === "offline") setProjects({ state: "offline" });
+      else if (r.status === "offline") setProjects((previous) => previous.state === "ok" ? previous : { state: "offline" });
       else setProjects({ state: "error", message: r.message });
     });
   }, []);
 
   useEffect(() => {
-    if (health !== "online") return;
+    if (health !== "online" || demoStage) return;
     void listAgents().then((r) => r.status === "ok" && setRoster(r.data));
     void listTools().then((r) => r.status === "ok" && setTools(r.data));
     void getGraph().then((r) => r.status === "ok" && setGraph(r.data));
     refreshProjects();
-  }, [health, refreshProjects]);
+  }, [health, demoStage, refreshProjects]);
 
   // --- selecting a run ------------------------------------------------------------
   const selectRun = useCallback((nextRunId: string | null, nextProjectId: string | null) => {
@@ -186,22 +196,79 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
     }
     setRunRecord({ state: "loading" });
     void getRun(nextRunId).then((r) => {
-      if (runIdRef.current !== nextRunId) return; // user moved on
+      if (runIdRef.current !== nextRunId || demoStageRef.current) return; // user moved on
       if (r.status === "ok") setRunRecord({ state: "ok", data: r.data });
       else if (r.status === "offline") setRunRecord({ state: "offline" });
       else setRunRecord({ state: "error", message: r.message });
     });
   }, []);
 
+  const applySnapshot = useCallback((d: DemoSnapshot, recorded: boolean, history: Project[] = [d.project]) => {
+    setDemo(recorded ? d : null);
+    setCached(!recorded);
+    setCursorState(null);
+    setRoster(d.agents);
+    setTools(d.tools);
+    setGraph(d.graph);
+    setProjects({ state: "ok", data: history });
+    runIdRef.current = d.run.id;
+    buffer.current = [];
+    setProjectId(d.project.id);
+    setRunId(d.run.id);
+    setRunRecord({ state: "ok", data: d.run });
+    dispatch({ type: "select", runId: d.run.id });
+    dispatch({ type: "events", events: d.events.map(parseEvent).filter((e): e is NeoEvent => e !== null) });
+  }, []);
+
+  const showDemo = useCallback(async (stage: "before" | "after" | null) => {
+    const token = ++snapshotRequest.current;
+    if (!stage) {
+      demoStageRef.current = null;
+      setDemoStage(null);
+      setDemo(null);
+      setCached(false);
+      userChose.current = false;
+      selectRun(null, null);
+      if (mobile && health === "offline") {
+        const history = readInvestigations();
+        if (history.length) applySnapshot(history[0], false, history.map((d) => d.project));
+        else if (demo) applySnapshot(demo, true);
+        else setProjects({ state: "offline" });
+        return;
+      }
+      setProjects({ state: "loading" });
+      refreshProjects();
+      return;
+    }
+    const response = await fetch(stage === "before" ? "/demo/before.json" : DEMO_URL);
+    const d: unknown = response.ok ? await response.json() : null;
+    if (!isSnapshot(d)) throw new Error("The recorded demo could not be loaded. Please try again.");
+    if (token !== snapshotRequest.current) return;
+    demoStageRef.current = stage;
+    setDemoStage(stage);
+    applySnapshot(d, true);
+  }, [applySnapshot, refreshProjects, selectRun, mobile, health, demo]);
+
   const selectProject = useCallback(
     async (id: string) => {
+      if (demo?.project.id === id) return;
+      if (mobile && health === "offline") {
+        const history = readInvestigations();
+        const saved = history.find((d) => d.project.id === id);
+        if (saved) {
+          remember(id);
+          applySnapshot(saved, false, history.map((d) => d.project));
+        }
+        return;
+      }
       userChose.current = true;
       const r = await getProject(id);
-      if (r.status !== "ok") return;
+      if (r.status !== "ok" || demoStageRef.current) return;
       remember(id);
+      setCached(false);
       selectRun(r.data.runs?.[0]?.id ?? null, id);
     },
-    [selectRun],
+    [selectRun, mobile, health, demo, applySnapshot],
   );
 
   // On first load, open the most recent project - which may be a run in progress.
@@ -217,10 +284,13 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
   // Only when the API has not answered since this page loaded: a drop mid-session keeps the
   // run on screen marked API OFFLINE, rather than swapping it for the recording.
   useEffect(() => {
+    if (demoStage) return;
     if (health === "online") {
       everOnline.current = true;
-      if (demo) {
+      if (demo || cached) {
         setDemo(null);
+        setCached(false);
+        userChose.current = false;
         setRoster(null);
         setTools(null);
         setGraph(null);
@@ -229,13 +299,20 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
-    if (health !== "offline" || everOnline.current || demo) return;
+    if (health !== "offline" || everOnline.current || demo || cached) return;
+    if (mobile) {
+      const history = readInvestigations();
+      if (history.length) {
+        applySnapshot(history.find((d) => d.project.id === recall()) ?? history[0], false, history.map((d) => d.project));
+        return;
+      }
+    }
     let stopped = false;
     void fetch(DEMO_URL)
       .then((r) => (r.ok ? (r.json() as Promise<DemoSnapshot>) : null))
       .catch(() => null)
       .then((d) => {
-        if (stopped || !d) return; // no recording: plain API OFFLINE
+        if (stopped || !isSnapshot(d) || demoStageRef.current) return; // no recording: plain API OFFLINE
         setDemo(d);
         setRoster(d.agents);
         setTools(d.tools);
@@ -251,10 +328,19 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
     return () => {
       stopped = true;
     };
-  }, [health, demo, selectRun]);
+  }, [health, demo, demoStage, cached, mobile, selectRun, applySnapshot]);
+
+  useEffect(() => {
+    if (!mobile || demo || cached || runRecord.state !== "ok" || projects.state !== "ok" || !graph) return;
+    const project = projects.data.find((p) => p.id === projectId);
+    if (!project || runRecord.data.project_id !== project.id) return;
+    saveInvestigation({ project, run: runRecord.data, events: liveRun.events, agents: roster ?? [],
+      tools: tools ?? [], graph, audit: [], auditCalls: {} });
+  }, [mobile, demo, cached, runRecord, projects, projectId, liveRun.events, roster, tools, graph]);
 
   const launch = useCallback(
     async (prompt: string, smiles?: string) => {
+      if (demoStageRef.current) return { status: "error", code: 409, message: "Exit the recorded demo to start live research." } as const;
       const result = await createProject({ prompt: prompt.trim(), smiles: smiles?.trim() || undefined });
       if (result.status === "ok") {
         userChose.current = true;
@@ -269,7 +355,7 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
 
   // --- the event stream ---------------------------------------------------------------
   useEffect(() => {
-    if (!runId || demo) {
+    if (!runId || demo || cached) {
       setSocket("idle"); // a recording has nothing to stream
       return;
     }
@@ -285,6 +371,7 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
       getLastSeq: () => lastSeqRef.current,
       onStatus: setSocket,
       onEvent: (event) => {
+        if (demoStageRef.current || runIdRef.current !== runId) return;
         if (event.seq > lastSeqRef.current) lastSeqRef.current = event.seq;
         buffer.current.push(event);
         if (flushTimer.current === null) flushTimer.current = setTimeout(flush, EVENT_BATCH_MS);
@@ -297,7 +384,7 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
       if (flushTimer.current) clearTimeout(flushTimer.current);
       flushTimer.current = null;
     };
-  }, [runId, demo]);
+  }, [runId, demo, cached]);
 
   // Reconcile with the persisted history. The WebSocket can drop an event when
   // concurrent agents commit out of order (the server filters on seq > last), so
@@ -307,11 +394,11 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
   const phaseRef = useRef(liveRun.phase);
   phaseRef.current = liveRun.phase;
   useEffect(() => {
-    if (!runId || health !== "online") return;
+    if (!runId || health !== "online" || demo || cached) return;
     let stopped = false;
     const reconcile = async (from: number) => {
       const r = await listEvents(runId, from);
-      if (stopped || runIdRef.current !== runId || r.status !== "ok") return;
+      if (stopped || demoStageRef.current || runIdRef.current !== runId || r.status !== "ok") return;
       const events = r.data.map(parseEvent).filter((e): e is NeoEvent => e !== null);
       if (events.length === 0) return;
       const top = events[events.length - 1];
@@ -326,28 +413,28 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
       stopped = true;
       clearInterval(timer);
     };
-  }, [runId, health]);
+  }, [runId, health, demo, cached]);
 
   useEffect(() => {
-    if (!runId || health !== "online" || (liveRun.phase !== "completed" && liveRun.phase !== "failed")) return;
+    if (!runId || demo || cached || health !== "online" || (liveRun.phase !== "completed" && liveRun.phase !== "failed")) return;
     const timer = setTimeout(() => {
       void listEvents(runId, 0).then((r) => {
-        if (runIdRef.current !== runId || r.status !== "ok") return;
+        if (demoStageRef.current || runIdRef.current !== runId || r.status !== "ok") return;
         const events = r.data.map(parseEvent).filter((e): e is NeoEvent => e !== null);
         dispatch({ type: "events", events });
       });
     }, 700); // let the trailing status events land first
     return () => clearTimeout(timer);
-  }, [runId, health, liveRun.phase]);
+  }, [runId, health, demo, cached, liveRun.phase]);
 
   // The run reaching a terminal state means the result package exists: fetch it.
   useEffect(() => {
-    if (!runId || demo || (liveRun.phase !== "completed" && liveRun.phase !== "failed")) return;
+    if (!runId || demo || cached || (liveRun.phase !== "completed" && liveRun.phase !== "failed")) return;
     void getRun(runId).then((r) => {
-      if (runIdRef.current === runId && r.status === "ok") setRunRecord({ state: "ok", data: r.data });
+      if (!demoStageRef.current && runIdRef.current === runId && r.status === "ok") setRunRecord({ state: "ok", data: r.data });
     });
     refreshProjects();
-  }, [runId, demo, liveRun.phase, refreshProjects]);
+  }, [runId, demo, cached, liveRun.phase, refreshProjects]);
 
   // a recording's agent states are known from its events, though the API is offline
   const agents = useMemo(() => buildAgentViews({ roster, run, health: demo ? "online" : health }), [roster, run, health, demo]);
@@ -371,11 +458,14 @@ export function NeoProvider({ children }: { children: React.ReactNode }) {
       agents,
       rejectedFrames,
       demo,
+      demoStage,
+      showDemo,
+      cached,
       launch,
       selectProject,
       refreshProjects,
     }),
-    [health, socket, roster, tools, graph, projects, projectId, runId, run, liveRun, cursor, setCursor, runRecord, agents, rejectedFrames, demo, launch, selectProject, refreshProjects],
+    [health, socket, roster, tools, graph, projects, projectId, runId, run, liveRun, cursor, setCursor, runRecord, agents, rejectedFrames, demo, demoStage, showDemo, cached, launch, selectProject, refreshProjects],
   );
 
   return <NeoContext.Provider value={value}>{children}</NeoContext.Provider>;

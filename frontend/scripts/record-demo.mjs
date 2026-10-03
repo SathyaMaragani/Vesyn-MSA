@@ -1,10 +1,11 @@
 // Records one finished run from a running Vesyn API into public/demo/run.json: the data the UI
 // shows, labelled SIMULATED, when the API is offline. Everything in it is what the API returned.
-//   node scripts/record-demo.mjs <run_id> [api base, default http://localhost:8436]
+//   node scripts/record-demo.mjs <run_id> [api base, default http://localhost:8436] [output filename]
 import { writeFileSync } from "node:fs";
 
-const [runId, api = "http://localhost:8436"] = process.argv.slice(2);
-if (!runId) throw new Error("usage: node scripts/record-demo.mjs <run_id> [api base]");
+const [runId, api = "http://localhost:8436", filename = "run.json"] = process.argv.slice(2);
+if (!/^[a-z0-9-]+\.json$/.test(filename)) throw new Error("output must be a JSON filename in public/demo");
+if (!runId) throw new Error("usage: node scripts/record-demo.mjs <run_id> [api base] [output filename]");
 
 const get = async (path) => {
   const r = await fetch(api + path);
@@ -26,6 +27,6 @@ const demo = {
   auditCalls: Object.fromEntries(await Promise.all(audit.map(async (a) => [a.id, await get(`/api/audit/${a.id}`)]))),
 };
 
-const out = new URL("../public/demo/run.json", import.meta.url);
+const out = new URL(`../public/demo/${filename}`, import.meta.url);
 writeFileSync(out, JSON.stringify(demo));
 console.log(`recorded ${runId} (${demo.events.length} events, ${audit.length} tool calls) -> ${out.pathname}`);
