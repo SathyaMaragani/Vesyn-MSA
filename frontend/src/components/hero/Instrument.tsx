@@ -59,7 +59,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         const L = facts.layout;
 
         g.lineWidth = 1;
-        g.strokeStyle = "rgba(232,228,216,0.34)";
+        g.strokeStyle = "rgba(29,51,57,0.28)";
         g.beginPath();
         for (const [a, bb] of L.bonds) {
           const [x1, y1] = P(L.atoms[a][0], L.atoms[a][2]);
@@ -69,7 +69,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         }
         g.stroke();
         // the camera's rail
-        g.strokeStyle = "rgba(214,164,91,0.85)";
+        g.strokeStyle = "rgba(18,108,103,0.85)";
         g.lineWidth = 1.4;
         g.beginPath();
         L.path.forEach((p, i) => {
@@ -78,7 +78,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
           else g.lineTo(x, y);
         });
         g.stroke();
-        g.fillStyle = "rgba(232,228,216,0.75)";
+        g.fillStyle = "rgba(29,51,57,0.7)";
         for (const a of L.atoms) {
           const [x, y] = P(a[0], a[2]);
           g.beginPath();
@@ -89,7 +89,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         const na = L.atoms[b.nearest.index];
         if (na) {
           const [x, y] = P(na[0], na[2]);
-          g.strokeStyle = "rgba(143,175,154,0.95)";
+          g.strokeStyle = "rgba(18,108,103,0.95)";
           g.lineWidth = 1.2;
           g.beginPath();
           g.arc(x, y, 6, 0, Math.PI * 2);
@@ -111,7 +111,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         g.save();
         g.translate(mx, my);
         g.rotate(ang);
-        g.fillStyle = outside ? "rgba(214,164,91,0.7)" : "rgba(214,164,91,1)";
+        g.fillStyle = outside ? "rgba(18,108,103,0.6)" : "rgba(18,108,103,1)";
         g.beginPath();
         g.moveTo(9, 0);
         g.lineTo(-6, 5);
@@ -122,7 +122,7 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         g.restore();
         // sight line to what it is looking at
         g.setLineDash([2, 4]);
-        g.strokeStyle = "rgba(214,164,91,0.45)";
+        g.strokeStyle = "rgba(18,108,103,0.4)";
         g.lineWidth = 1;
         g.beginPath();
         g.moveTo(mx, my);
@@ -152,20 +152,20 @@ export function Instrument({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nu
         <svg ref={ring} viewBox="0 0 340 340" className="absolute inset-0 h-full w-full will-change-transform" fill="none" aria-hidden>
           {TICKS.map((i) => {
             const major = i % 6 === 0;
-            return <line key={i} x1="170" y1="4" x2="170" y2={major ? 15 : 9} stroke="rgb(232 228 216)" strokeOpacity={major ? 0.75 : 0.35} strokeWidth={major ? 1.4 : 1} transform={`rotate(${i * 5} 170 170)`} />;
+            return <line key={i} x1="170" y1="4" x2="170" y2={major ? 15 : 9} stroke="rgb(29 51 57)" strokeOpacity={major ? 0.6 : 0.28} strokeWidth={major ? 1.4 : 1} transform={`rotate(${i * 5} 170 170)`} />;
           })}
           {[0, 90, 180, 270].map((d) => (
-            <text key={d} x="170" y="30" textAnchor="middle" fontSize="9" letterSpacing="2" fill="rgb(169 167 156)" fillOpacity="0.85" fontFamily="var(--nc-font-data)" transform={`rotate(${d} 170 170)`}>
+            <text key={d} x="170" y="30" textAnchor="middle" fontSize="9" letterSpacing="2" fill="rgb(65 87 94)" fillOpacity="0.9" fontFamily="var(--nc-font-data)" transform={`rotate(${d} 170 170)`}>
               {String(d).padStart(3, "0")}
             </text>
           ))}
         </svg>
         {/* fixed frame: outer ring, a dashed inner ring, and the copper index mark */}
         <svg viewBox="0 0 340 340" className="absolute inset-0 h-full w-full" fill="none" aria-hidden>
-          <circle cx="170" cy="170" r="166" stroke="rgb(232 228 216)" strokeOpacity="0.28" />
-          <circle cx="170" cy="170" r="122" stroke="rgb(143 175 154)" strokeOpacity="0.3" strokeDasharray="1 6" />
-          <circle cx="170" cy="170" r="60" stroke="rgb(232 228 216)" strokeOpacity="0.1" />
-          <path d="M170 0 l5 -9 h-10 z" fill="rgb(184 117 82)" />
+          <circle cx="170" cy="170" r="166" stroke="rgb(29 51 57)" strokeOpacity="0.2" />
+          <circle cx="170" cy="170" r="122" stroke="rgb(18 108 103)" strokeOpacity="0.3" strokeDasharray="1 6" />
+          <circle cx="170" cy="170" r="60" stroke="rgb(29 51 57)" strokeOpacity="0.1" />
+          <path d="M170 0 l5 -9 h-10 z" fill="rgb(18 108 103)" />
         </svg>
         <canvas ref={map} className="absolute inset-0 h-full w-full" aria-label="Plan view of the molecule with the camera's position" />
       </div>

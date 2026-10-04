@@ -80,7 +80,7 @@ export function EnterPortal({ bus, onEnter, active }: { bus: HeroBus; onEnter: (
 
   return (
     <div className="pointer-events-none absolute inset-0">
-      <div ref={tag} className="absolute left-0 top-0 whitespace-nowrap font-data text-[9px] tracking-[0.55em] text-nc-mid [text-shadow:0_0_12px_rgba(16,17,15,0.95)]" style={{ opacity: 0 }}>
+      <div ref={tag} className="absolute left-0 top-0 whitespace-nowrap font-data text-[9px] tracking-[0.55em] text-nc-mid [text-shadow:0_0_2px_rgb(245_249_248),0_0_6px_rgb(245_249_248),0_0_12px_rgba(245,249,248,0.9)]" style={{ opacity: 0 }}>
         AI SCIENTIFIC WORKFORCE
       </div>
       <div ref={box} className="absolute left-0 top-0" style={{ opacity: 0, pointerEvents: "none", width: 380 }}>
@@ -103,12 +103,12 @@ export function EnterPortal({ bus, onEnter, active }: { bus: HeroBus; onEnter: (
         >
           {/* the hairline and its corner ticks */}
           <span ref={line} className="absolute inset-x-0 top-0 h-px origin-left bg-nc-mid/70" style={{ transform: "scaleX(0)" }} />
-          <span ref={glow} className="absolute inset-x-0 top-0 h-px origin-left bg-gradient-to-r from-nc-warn via-nc-warn to-transparent shadow-[0_0_18px_2px_rgb(214_164_91/0.55)]" style={{ opacity: 0 }} />
-          <i className="absolute left-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-warn" />
-          <i className="absolute right-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-warn" />
-          <span className="font-data text-[9px] tracking-[0.3em] text-nc-lo transition-colors group-hover:text-nc-warn">ACCESS 01</span>
-          <span className="font-data text-[13px] tracking-[0.5em] text-nc-hi transition-[letter-spacing,color] duration-500 group-hover:tracking-[0.62em] group-hover:text-nc-warn">ENTER VESYN</span>
-          <svg viewBox="0 0 28 10" className="h-2.5 w-7 text-nc-warn transition-transform duration-500 group-hover:translate-x-2" fill="none" aria-hidden>
+          <span ref={glow} className="absolute inset-x-0 top-0 h-px origin-left bg-gradient-to-r from-nc-cyan via-nc-cyan to-transparent shadow-[0_0_18px_2px_rgb(18_108_103/0.4)]" style={{ opacity: 0 }} />
+          <i className="absolute left-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-cyan" />
+          <i className="absolute right-0 top-0 h-2.5 w-px bg-nc-mid/70 transition-colors group-hover:bg-nc-cyan" />
+          <span className="font-data text-[9px] tracking-[0.3em] text-nc-lo transition-colors group-hover:text-nc-cyan">ACCESS 01</span>
+          <span className="font-data text-[13px] tracking-[0.5em] text-nc-hi transition-[letter-spacing,color] duration-500 group-hover:tracking-[0.62em] group-hover:text-nc-cyan">ENTER VESYN</span>
+          <svg viewBox="0 0 28 10" className="h-2.5 w-7 text-nc-cyan transition-transform duration-500 group-hover:translate-x-2" fill="none" aria-hidden>
             <path d="M0 5h26M21 1l5 4-5 4" stroke="currentColor" strokeWidth="1.2" />
           </svg>
         </a>

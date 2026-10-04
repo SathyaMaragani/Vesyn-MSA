@@ -131,7 +131,7 @@ export function Hero() {
   );
 
   return (
-    <main ref={mainRef} className="nc-scene fixed inset-0 overflow-hidden bg-nc-base text-nc-hi" data-hero data-cursor="idle" data-cursor-label="">
+    <main ref={mainRef} className="fixed inset-0 overflow-hidden bg-nc-base text-nc-hi" data-hero data-cursor="idle" data-cursor-label="">
       <h1 className="sr-only">Vesyn — AI scientific workforce. Chemistry, reasoned by machines.</h1>
 
       <HeroBackdrop bus={bus} />

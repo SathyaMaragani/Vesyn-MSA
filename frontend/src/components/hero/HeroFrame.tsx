@@ -70,11 +70,11 @@ export function HeroFrame({
   return (
     <div ref={root} className="pointer-events-none absolute inset-0" style={{ opacity: 0 }}>
       {/* technical mark, top-left */}
-      <div className="absolute left-[clamp(20px,2.6vw,44px)] top-[clamp(18px,3.4vh,40px)] [text-shadow:0_0_14px_rgba(16,17,15,0.95),0_0_4px_rgba(16,17,15,0.9)]">
+      <div className="absolute left-[clamp(20px,2.6vw,44px)] top-[clamp(18px,3.4vh,40px)] -ml-2.5 -mt-1.5 rounded-lg bg-nc-base/55 px-2.5 py-1.5 backdrop-blur-md [text-shadow:0_0_2px_rgb(245_249_248),0_0_6px_rgb(245_249_248),0_0_14px_rgba(245,249,248,0.9)]">
         <div className="flex items-center gap-2.5">
           <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" aria-hidden>
-            <path d="M12 2.5 20.5 7.5v9L12 21.5 3.5 16.5v-9z" stroke="rgb(232 228 216)" strokeOpacity="0.8" />
-            <circle cx="12" cy="12" r="2.6" fill="rgb(184 117 82)" />
+            <path d="M12 2.5 20.5 7.5v9L12 21.5 3.5 16.5v-9z" stroke="rgb(29 51 57)" strokeOpacity="0.8" />
+            <circle cx="12" cy="12" r="2.6" fill="rgb(18 108 103)" />
           </svg>
           <span className="font-data text-[12px] tracking-[0.3em] text-nc-hi">
             VE<span className="text-nc-cyan">syn</span>
@@ -84,7 +84,7 @@ export function HeroFrame({
       </div>
 
       {/* live readout, left: every row reads real state */}
-      <div ref={meta} className="pointer-events-auto absolute left-[clamp(20px,2.6vw,44px)] top-[clamp(92px,15vh,150px)] font-data text-[8.5px] leading-[2.05] tracking-[0.3em] [text-shadow:0_0_12px_rgba(16,17,15,0.95)] max-[1100px]:hidden" {...EXPLORE}>
+      <div ref={meta} className="pointer-events-auto absolute left-[clamp(20px,2.6vw,44px)] top-[clamp(92px,15vh,150px)] font-data text-[8.5px] leading-[2.05] tracking-[0.3em] [text-shadow:0_0_2px_rgb(245_249_248),0_0_6px_rgb(245_249_248),0_0_12px_rgba(245,249,248,0.9)] max-[1100px]:hidden" {...EXPLORE}>
         <div className="text-nc-mid">MOLECULAR INTELLIGENCE</div>
         <div className="mb-2 text-nc-lo">SYSTEM 01</div>
         <div className="flex gap-4">
@@ -131,22 +131,22 @@ export function HeroFrame({
         </div>
         <div className="flex gap-4">
           <span className="w-[8.5em] text-nc-lo">SCROLL</span>
-          <span ref={scroll} className="text-nc-warn">
+          <span ref={scroll} className="text-nc-cyan">
             000
           </span>
         </div>
       </div>
 
       {/* minimal index, top-right: two ways out of the hero, each with a marker */}
-      <nav aria-label="Primary" className="pointer-events-auto absolute right-[clamp(20px,2.6vw,44px)] top-[clamp(18px,3.4vh,40px)] flex flex-col items-end gap-2 [text-shadow:0_0_14px_rgba(16,17,15,0.95),0_0_4px_rgba(16,17,15,0.9)]">
+      <nav aria-label="Primary" className="pointer-events-auto absolute right-[clamp(20px,2.6vw,44px)] top-[clamp(18px,3.4vh,40px)] -mr-2.5 -mt-1.5 flex flex-col items-end gap-2 rounded-lg bg-nc-base/55 px-2.5 py-1.5 backdrop-blur-md [text-shadow:0_0_2px_rgb(245_249_248),0_0_6px_rgb(245_249_248),0_0_14px_rgba(245,249,248,0.9)]">
         <button type="button" onClick={() => onJump(1)} className={NAV} {...EXPLORE}>
           SYSTEM
-          <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-warn" />
+          <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-cyan" />
           <span className="w-4 text-left text-[8px] text-nc-lo">01</span>
         </button>
         <button type="button" onClick={onEnter} className={NAV} {...EXPLORE}>
           LAB
-          <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-warn" />
+          <span className="block h-px w-4 bg-nc-mid/60 transition-all duration-300 group-hover:w-8 group-hover:bg-nc-cyan" />
           <span className="w-4 text-left text-[8px] text-nc-lo">02</span>
         </button>
       </nav>
@@ -160,8 +160,8 @@ export function HeroFrame({
               <span className={`font-data text-[9px] tracking-[0.34em] transition-all duration-300 ${on ? "translate-x-0 text-nc-hi opacity-100" : "translate-x-2 text-nc-lo opacity-0 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:opacity-100"}`}>
                 {c.label}
               </span>
-              <span className={`block h-px transition-all duration-500 ${on ? "w-9 bg-nc-warn" : "w-4 bg-nc-mid/50 group-hover:w-7 group-hover:bg-nc-hi"}`} />
-              <span className={`w-4 text-right font-data text-[9px] tracking-[0.1em] ${on ? "text-nc-warn" : "text-nc-lo"}`}>{c.id}</span>
+              <span className={`block h-px transition-all duration-500 ${on ? "w-9 bg-nc-cyan" : "w-4 bg-nc-mid/50 group-hover:w-7 group-hover:bg-nc-hi"}`} />
+              <span className={`w-4 text-right font-data text-[9px] tracking-[0.1em] ${on ? "text-nc-cyan" : "text-nc-lo"}`}>{c.id}</span>
             </button>
           );
         })}
@@ -171,7 +171,7 @@ export function HeroFrame({
       <div ref={cue} className="absolute bottom-[clamp(20px,4vh,46px)] left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 font-data text-[8px] tracking-[0.4em] text-nc-mid">
         <span>SCROLL</span>
         <span className="relative block h-9 w-px overflow-hidden bg-nc-line-strong">
-          <span className="absolute inset-x-0 top-0 h-3 animate-[nc-cue_2.2s_ease-in-out_infinite] bg-nc-warn" />
+          <span className="absolute inset-x-0 top-0 h-3 animate-[nc-cue_2.2s_ease-in-out_infinite] bg-nc-cyan" />
         </span>
       </div>
     </div>

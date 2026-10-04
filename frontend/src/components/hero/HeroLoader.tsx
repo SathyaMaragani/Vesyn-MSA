@@ -61,21 +61,21 @@ function useOrbits(ref: React.RefObject<HTMLCanvasElement>, progress: React.Muta
         g.save();
         g.rotate(spin);
         g.scale(1, 0.34 + 0.16 * Math.cos(tilt * 2));
-        g.strokeStyle = `rgba(143,175,154,${alpha})`;
+        g.strokeStyle = `rgba(18,108,103,${alpha})`;
         g.lineWidth = 1;
         g.beginPath();
         g.arc(0, 0, r, 0, Math.PI * 2);
         g.stroke();
         // the electron on this shell
         const a = t * (0.9 - i * 0.16) + i * 2.1;
-        g.fillStyle = `rgba(232,228,216,${(0.35 + 0.5 * p) * (1 - ex)})`;
+        g.fillStyle = `rgba(29,51,57,${(0.35 + 0.5 * p) * (1 - ex)})`;
         g.beginPath();
         g.arc(Math.cos(a) * r, Math.sin(a) * r, 2.1, 0, Math.PI * 2);
         g.fill();
         g.restore();
       }
       // nucleus: grows as checks answer
-      g.fillStyle = `rgba(143,175,154,${(0.25 + 0.6 * p) * (1 - ex)})`;
+      g.fillStyle = `rgba(18,108,103,${(0.25 + 0.6 * p) * (1 - ex)})`;
       g.beginPath();
       g.arc(0, 0, 3 + 5 * p, 0, Math.PI * 2);
       g.fill();
@@ -196,7 +196,7 @@ export function HeroLoader({ bus, engineReady, onDone }: { bus: HeroBus; engineR
       style={{
         opacity: lifting ? 0 : 1,
         pointerEvents: lifting ? "none" : "auto",
-        background: "radial-gradient(ellipse 60% 70% at 100% 0%, rgba(214,164,91,0.16), transparent 62%), radial-gradient(ellipse 70% 60% at 0% 108%, rgba(184,117,82,0.2), transparent 64%), radial-gradient(ellipse 34% 40% at 50% 50%, rgba(143,175,154,0.14), transparent 72%), #10110f",
+        background: "radial-gradient(ellipse 60% 70% at 100% 0%, rgba(18,108,103,0.06), transparent 62%), radial-gradient(ellipse 70% 60% at 0% 108%, rgba(18,108,103,0.08), transparent 64%), radial-gradient(ellipse 34% 40% at 50% 50%, rgba(18,108,103,0.06), transparent 72%), #f5f9f8",
       }}
       role="status"
       aria-label="Loading Vesyn"

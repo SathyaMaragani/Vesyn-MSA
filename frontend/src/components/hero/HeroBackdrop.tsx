@@ -25,9 +25,9 @@ function makeGrainTile(size = 160): string | null {
 }
 
 const GRADIENTS = [
-  "radial-gradient(ellipse 60% 70% at 100% 0%, rgba(214,164,91,0.2), transparent 62%)",
-  "radial-gradient(ellipse 70% 60% at 0% 108%, rgba(184,117,82,0.24), transparent 64%)",
-  "linear-gradient(180deg, #191b18 0%, #131412 55%, #10110f 100%)",
+  "radial-gradient(ellipse 60% 70% at 100% 0%, rgba(18,108,103,0.07), transparent 62%)",
+  "radial-gradient(ellipse 70% 60% at 0% 108%, rgba(18,108,103,0.09), transparent 64%)",
+  "linear-gradient(180deg, #fafcfb 0%, #f5f9f8 60%, #f1f6f4 100%)",
 ].join(",");
 
 /**
@@ -64,7 +64,7 @@ export function HeroBackdrop({ bus }: { bus: HeroBus }) {
       <div
         ref={glow}
         className="absolute left-[38%] top-[8%] h-[78%] w-[52%] will-change-transform"
-        style={{ background: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(143,175,154,0.24), transparent 74%)" }}
+        style={{ background: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(18,108,103,0.06), transparent 74%)" }}
       />
     </div>
   );

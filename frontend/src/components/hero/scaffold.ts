@@ -6,14 +6,16 @@ import { longestPath, ringAtoms, smallRings } from "@/lib/chem/analysis";
 import { ELEMENT_RADIUS, type Molecule } from "@/lib/chem/molecule";
 import type { V3 } from "./journey";
 
-/** The hero's materials, all from one palette: stone, sage, copper, amber, oxidised bronze. */
+/** The hero's materials: one family of the site's teal (app.css --nc-cyan, #126C67). Rings take the accent
+ *  itself, chains a step lighter, heteroatoms lighter still - one colour, and the structure still reads. */
 export const PALETTE = {
-  stone: 0xc9c1a8,
-  sage: 0x8faf9a,
-  copper: 0xb87552,
-  amber: 0xd6a45b,
-  bronze: 0x9b7a5f,
-  ground: 0x10110f,
+  ring: 0x126c67,
+  chain: 0x1e8379,
+  oxygen: 0x3c9f92,
+  hetero: 0x6cbcae,
+  bond: 0x5b7175, // slate: the frame, not the subject
+  edge: 0xe6f4f1, // the daylight a silhouette catches
+  ground: 0xf5f9f8, // porcelain, the page's own ground
 };
 
 const TARGET_RADIUS = 12; // scene units from the centre to the farthest atom
@@ -49,13 +51,13 @@ interface Seg {
 }
 
 const colorOf = (el: string, ring: boolean): number => {
-  if (el === "O") return PALETTE.copper;
-  if (el === "N" || el === "S" || el === "P") return PALETTE.amber;
-  return ring ? PALETTE.stone : PALETTE.sage;
+  if (el === "O") return PALETTE.oxygen;
+  if (el === "N" || el === "S" || el === "P") return PALETTE.hetero;
+  return ring ? PALETTE.ring : PALETTE.chain;
 };
 
 /**
- * Rim light: a fresnel term added to the lit colour, so silhouettes catch a warm edge as if lit from
+ * Rim light: a fresnel term added to the lit colour, so silhouettes catch a light edge as if lit from
  * behind. Restrained on purpose - a physical highlight, not a glow.
  */
 function withRim(mat: THREE.MeshStandardMaterial, color: number, intensity: number, power = 3): void {
@@ -106,15 +108,15 @@ export function createScaffold(mol: Molecule): Scaffold {
   const group = new THREE.Group();
   const sphereGeo = new THREE.SphereGeometry(1, 28, 20);
   const atomMat = new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.16 });
-  withRim(atomMat, 0xe9c48a, 0.26, 4);
+  withRim(atomMat, PALETTE.edge, 0.2, 4);
   const atoms = new THREE.InstancedMesh(sphereGeo, atomMat, n);
   atoms.frustumCulled = false;
   const radiusOf = graph.atoms.map((a) => (ELEMENT_RADIUS[a.element] ?? 0.3) * S * 1.05);
   const baseColor = graph.atoms.map((a) => new THREE.Color(colorOf(a.element, ring.has(a.index))));
   baseColor.forEach((col, i) => atoms.setColorAt(i, col));
   const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 12, 1);
-  const bondMat = new THREE.MeshStandardMaterial({ color: PALETTE.bronze, roughness: 0.3, metalness: 0.78 });
-  withRim(bondMat, 0xd6a45b, 0.2, 4);
+  const bondMat = new THREE.MeshStandardMaterial({ color: PALETTE.bond, roughness: 0.35, metalness: 0.45 });
+  withRim(bondMat, PALETTE.edge, 0.12, 4);
   const bonds = new THREE.InstancedMesh(cylGeo, bondMat, segs.length);
   bonds.frustumCulled = false;
   atoms.castShadow = atoms.receiveShadow = true;
@@ -196,7 +198,7 @@ export function createScaffold(mol: Molecule): Scaffold {
   const setHover = (atom: number | null) => {
     if (hovered !== null && hovered < n) atoms.setColorAt(hovered, baseColor[hovered]);
     hovered = atom;
-    if (atom !== null && atom < n) atoms.setColorAt(atom, tmpColor.copy(baseColor[atom]).lerp(new THREE.Color(0xf4efe0), 0.55));
+    if (atom !== null && atom < n) atoms.setColorAt(atom, tmpColor.copy(baseColor[atom]).lerp(new THREE.Color(PALETTE.edge), 0.55));
     if (atoms.instanceColor) atoms.instanceColor.needsUpdate = true;
   };
   if (atoms.instanceColor) atoms.instanceColor.needsUpdate = true;

@@ -108,11 +108,11 @@ export function HeroNotes({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nul
               y1="0"
               x2="60"
               y2="-40"
-              stroke="rgb(214 164 91 / 0.7)"
+              stroke="rgb(18 108 103 / 0.7)"
               strokeWidth="1"
             />
-            <circle cx="0" cy="0" r="6" fill="none" stroke="rgb(214 164 91 / 0.95)" strokeWidth="1" />
-            <circle cx="0" cy="0" r="1.6" fill="rgb(214 164 91)" />
+            <circle cx="0" cy="0" r="6" fill="none" stroke="rgb(18 108 103 / 0.95)" strokeWidth="1" />
+            <circle cx="0" cy="0" r="1.6" fill="rgb(18 108 103)" />
           </svg>
           <div
             ref={(el) => {
@@ -125,9 +125,9 @@ export function HeroNotes({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nul
         </div>
       ))}
 
-      <div ref={hover} className="absolute left-0 top-0 border-l border-nc-warn/80 pl-3 will-change-transform" style={{ opacity: 0 }}>
+      <div ref={hover} className="absolute left-0 top-0 border-l border-nc-cyan/80 pl-3 will-change-transform" style={{ opacity: 0 }}>
         <div ref={hoverTitle} className="font-serif text-[26px] italic leading-none text-nc-hi" />
-        <div ref={hoverDetail} className="mt-1.5 font-data text-[9px] tracking-[0.24em] text-nc-warn" />
+        <div ref={hoverDetail} className="mt-1.5 font-data text-[9px] tracking-[0.24em] text-nc-cyan" />
       </div>
 
       {/* 02 - the seven stages of the workforce */}
@@ -142,7 +142,7 @@ export function HeroNotes({ bus, facts }: { bus: HeroBus; facts: HeroFacts | nul
             className="flex items-baseline justify-end gap-3 font-data text-[11px] leading-[2] tracking-[0.3em] text-nc-hi transition-[opacity,transform] duration-500"
           >
             {s}
-            <span className="text-[9px] text-nc-warn">{String(i + 1).padStart(2, "0")}</span>
+            <span className="text-[9px] text-nc-cyan">{String(i + 1).padStart(2, "0")}</span>
           </div>
         ))}
       </div>

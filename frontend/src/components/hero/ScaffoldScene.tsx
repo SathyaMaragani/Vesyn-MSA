@@ -9,7 +9,7 @@ import type { HeroBus } from "./heroBus";
 import { createHeroWorld, type HeroFacts, type HeroWorld } from "./heroWorld";
 import { brandAlpha, cameraAt, fovAt, introEase, nearestAtom, seg, settleK, shiftAt, type V3 } from "./journey";
 
-const FOG = 0x10110f;
+const FOG = 0xf5f9f8; // the page's porcelain: distant structure fades into the backdrop behind the canvas
 const BASE_FOV = 34;
 const FOG_DENSITY = 0.0105;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -42,6 +42,10 @@ export function ScaffoldScene({ bus, onFacts }: { bus: HeroBus; onFacts?: (f: He
     shadows: true,
     setup: (stage) => {
       const { renderer, scene, camera } = stage;
+      // A light scene. ACES (the stage default) would turn the porcelain fog grey against the CSS backdrop behind
+      // this transparent canvas, and dull the teal; Neutral keeps base colours and near-whites true.
+      renderer.toneMapping = THREE.NeutralToneMapping;
+      renderer.toneMappingExposure = 1;
       const world = createHeroWorld();
       worldRef.current = world;
       laidOutFor.current = ""; // a new world (Strict Mode mounts twice in dev) must be laid out again

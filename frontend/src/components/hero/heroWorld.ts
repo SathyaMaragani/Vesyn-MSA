@@ -136,9 +136,9 @@ export function createHeroWorld(): HeroWorld {
   };
   const root = new THREE.Group();
 
-  // --- light: warm key with real shadows, mineral rim from behind, copper fill from below ---
-  const ambient = new THREE.AmbientLight(0xa89a80, 0.3);
-  const key = new THREE.DirectionalLight(0xffe9c8, 2.1);
+  // --- light: a daylight key with real shadows, a teal rim from behind, a soft fill from below ---
+  const ambient = new THREE.AmbientLight(0xf2f7f6, 0.85);
+  const key = new THREE.DirectionalLight(0xffffff, 2.1);
   key.position.set(9, 13, 11);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -150,9 +150,9 @@ export function createHeroWorld(): HeroWorld {
   key.shadow.camera.far = 60;
   key.shadow.bias = -0.0006;
   key.shadow.radius = 4;
-  const rim = new THREE.PointLight(PALETTE.sage, 170, 80, 1.5);
+  const rim = new THREE.PointLight(PALETTE.hetero, 170, 80, 1.5);
   rim.position.set(-18, 8, -16);
-  const fill = new THREE.PointLight(PALETTE.copper, 80, 60, 1.6);
+  const fill = new THREE.PointLight(0xffffff, 80, 60, 1.6);
   fill.position.set(12, -12, 9);
   root.add(ambient, key, rim, fill);
 
@@ -172,7 +172,7 @@ export function createHeroWorld(): HeroWorld {
   DISTANT.forEach((smiles, i) => {
     const d = getMolecule(smiles);
     if (!d.ok) return;
-    const m = createMoleculeMesh(d.molecule);
+    const m = createMoleculeMesh(d.molecule, { atom: (el) => (el === "C" ? PALETTE.chain : el === "O" ? PALETTE.oxygen : PALETTE.hetero), bond: PALETTE.bond });
     track(m);
     const home = new THREE.Vector3((i % 2 ? 1 : -1) * (16 + r() * 22), (r() - 0.5) * 30, -26 - r() * 46);
     m.group.position.copy(home);
@@ -194,9 +194,9 @@ export function createHeroWorld(): HeroWorld {
     distant.push({ m, spin: new THREE.Vector3((r() - 0.5) * 0.05, (r() - 0.5) * 0.06, (r() - 0.5) * 0.03), home, mats });
   });
 
-  // --- light shafts: a soft volume of warm light falling through the structure ---------------------
+  // --- light shafts: a soft volume of daylight falling through the structure ------------------------
   const shaftTex = track(shaftTexture());
-  const shaftMat = track(new THREE.MeshBasicMaterial({ map: shaftTex, color: 0xf2c98a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  const shaftMat = track(new THREE.MeshBasicMaterial({ map: shaftTex, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   const shaftGeo = track(new THREE.PlaneGeometry(1, 1));
   [
     { x: 9, y: 4, z: -14, w: 10, h: 64, rot: -0.55 },
@@ -225,7 +225,7 @@ export function createHeroWorld(): HeroWorld {
   };
   const dustGeo = track(new THREE.BufferGeometry());
   dustGeo.setAttribute("position", new THREE.BufferAttribute(scatter(420, [80, 44, -50, 80], 5), 3));
-  const dustMat = track(new THREE.PointsMaterial({ map: disc, size: 0.2, color: 0xe8e4d8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  const dustMat = track(new THREE.PointsMaterial({ map: disc, size: 0.2, color: PALETTE.bond, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.NormalBlending, sizeAttenuation: true }));
   const dust = new THREE.Points(dustGeo, dustMat);
   dust.frustumCulled = false;
   root.add(dust);
@@ -238,10 +238,10 @@ export function createHeroWorld(): HeroWorld {
   // to rest across the edges of the frame: foreground, partly in view, heavily out of focus). `arr` is where it
   // settles as a point in normalised screen space, its depth ahead of the lens and its size (0 = does not return).
   const closeAtoms = [
-    { color: PALETTE.stone, p: [-5.6, -3.4, -6.5], s: 1.05, ph: 0, arr: { x: -1.02, y: -0.96, d: 5.4, s: 1.05 } },
-    { color: PALETTE.sage, p: [5.4, 3.0, -7.0], s: 0.95, ph: 2, arr: { x: 0.94, y: 0.86, d: 8.5, s: 1.05 } },
-    { color: PALETTE.copper, p: [3.4, -3.3, -4.2], s: 0.62, ph: 4, arr: { x: -0.42, y: -1.06, d: 4.4, s: 0.42 } },
-    { color: PALETTE.stone, p: [-3.6, 3.2, -8.5], s: 0.9, ph: 1, arr: { x: 0, y: 0, d: 8, s: 0 } },
+    { color: PALETTE.hetero, p: [-5.6, -3.4, -6.5], s: 1.05, ph: 0, arr: { x: -1.02, y: -0.96, d: 5.4, s: 1.05 } },
+    { color: PALETTE.oxygen, p: [5.4, 3.0, -7.0], s: 0.95, ph: 2, arr: { x: 0.94, y: 0.86, d: 8.5, s: 1.05 } },
+    { color: PALETTE.hetero, p: [3.4, -3.3, -4.2], s: 0.62, ph: 4, arr: { x: -0.42, y: -1.06, d: 4.4, s: 0.42 } },
+    { color: PALETTE.oxygen, p: [-3.6, 3.2, -8.5], s: 0.9, ph: 1, arr: { x: 0, y: 0, d: 8, s: 0 } },
   ].map((c) => {
     const m = new THREE.Mesh(sphere, closeMat(c.color));
     m.position.set(c.p[0], c.p[1], c.p[2]);
@@ -249,8 +249,8 @@ export function createHeroWorld(): HeroWorld {
     cameraRig.add(m);
     return { m, home: m.position.clone(), s: c.s, ph: c.ph, arr: c.arr };
   });
-  // a warm light that travels with the lens, so atoms passing close are lit as they arrive
-  const lens = new THREE.PointLight(0xffe2b8, 30, 18, 1.8);
+  // a light that travels with the lens, so atoms passing close are lit as they arrive
+  const lens = new THREE.PointLight(0xffffff, 30, 18, 1.8);
   lens.position.set(0.6, 0.5, -1.2);
   cameraRig.add(lens);
 
@@ -277,10 +277,10 @@ export function createHeroWorld(): HeroWorld {
   const slotLocal = ARRIVAL_SLOTS.map((s) => new THREE.Vector3(end.pos[0] + fwdE[0] * s.f + rightE[0] * s.r + upE[0] * s.u, end.pos[1] + fwdE[1] * s.f + rightE[1] * s.r + upE[1] * s.u, end.pos[2] + fwdE[2] * s.f + rightE[2] * s.r + upE[2] * s.u));
   const slotWorld = new THREE.Vector3();
   const tint = new THREE.Color();
-  const KEY_COOL = new THREE.Color(0xffe9c8);
-  const KEY_WARM = new THREE.Color(0xffd29a);
-  const AMB_COOL = new THREE.Color(0xa89a80);
-  const AMB_WARM = new THREE.Color(0xb59a76);
+  const KEY_COOL = new THREE.Color(0xffffff);
+  const KEY_WARM = new THREE.Color(0xfff3e2);
+  const AMB_COOL = new THREE.Color(0xf2f7f6);
+  const AMB_WARM = new THREE.Color(0xf8f4ec);
   const END_FOV = 38;
 
   return {
@@ -351,17 +351,17 @@ export function createHeroWorld(): HeroWorld {
         }
       });
 
-      // arrival is warmer than the opening: the key turns amber, the mineral rim steps back, the haze glows
+      // arrival is a touch warmer than the opening: the key warms slightly and the teal rim steps back
       const warm = warmthAt(progress);
       key.color.copy(KEY_COOL).lerp(KEY_WARM, warm);
       ambient.color.copy(AMB_COOL).lerp(AMB_WARM, warm);
-      lens.color.copy(tint.set(0xffe2b8).lerp(KEY_WARM, warm));
-      ambient.intensity = (0.3 + 0.06 * warm) * intro;
+      lens.color.copy(tint.set(0xffffff).lerp(KEY_WARM, warm));
+      ambient.intensity = (0.85 + 0.06 * warm) * intro;
       key.intensity = (2.1 + 0.35 * warm) * intro;
       rim.intensity = (170 * (1 - 0.3 * warm) + 70 * cta) * intro;
       fill.intensity = (80 * (1 + 0.5 * warm) + 40 * cta) * intro;
       lens.intensity = (30 + 10 * warm) * intro;
-      dustMat.opacity = 0.5 * (0.4 + 0.6 * intro);
+      dustMat.opacity = 0.28 * (0.4 + 0.6 * intro);
       shaftMat.opacity = 0.05 * (1 + 0.8 * warm) * intro * (0.85 + 0.15 * Math.sin(t * 0.4));
     },
     dispose() {

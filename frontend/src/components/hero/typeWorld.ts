@@ -20,8 +20,8 @@ interface Ink {
 }
 
 const INK = {
-  ivory: { solid: "rgb(232,228,216)", line: "rgba(232,228,216,0.85)", hex: 0xe8e4d8, lineHex: 0xe8e4d8 },
-  sage: { solid: "rgb(143,175,154)", line: "rgba(214,164,91,0.95)", hex: 0x8faf9a, lineHex: 0xd6a45b, italic: true },
+  slate: { solid: "rgb(29,51,57)", line: "rgba(29,51,57,0.85)", hex: 0x1d3339, lineHex: 0x1d3339 },
+  teal: { solid: "rgb(18,108,103)", line: "rgba(18,108,103,0.95)", hex: 0x126c67, lineHex: 0x126c67, italic: true },
 } satisfies Record<string, Ink>;
 
 const VERT = /* glsl */ `
@@ -126,7 +126,7 @@ export interface TextPlane {
 export function createTextPlane(text: string, ink: Ink, fontPx = 320, shadow = 0, brandV = false): TextPlane {
   const width = measure(text, ink, fontPx);
   const height = Math.ceil(fontPx * 1.3);
-  // a shadow plane is the same word, blurred, painted near-black, and never writes depth
+  // a shadow plane is the same word, blurred, painted a soft grey, and never writes depth
   const tSolid = drawTexture(text, ink, false, fontPx, width, height, shadow, brandV);
   const tLine = shadow ? tSolid : drawTexture(text, ink, true, fontPx, width, height, 0, brandV);
   const material = new THREE.ShaderMaterial({
@@ -140,7 +140,7 @@ export function createTextPlane(text: string, ink: Ink, fontPx = 320, shadow = 0
       uDim: { value: 1 },
       uGain: { value: shadow ? 1 : 1.2 },
       uCut: { value: shadow ? 0.01 : 0.05 },
-      uColor: { value: new THREE.Color(shadow ? 0x030302 : ink.hex) },
+      uColor: { value: new THREE.Color(shadow ? 0xb7c8c3 : ink.hex) },
       uLineColor: { value: new THREE.Color(ink.lineHex) },
     },
     transparent: true,
@@ -169,9 +169,9 @@ export function createTextPlane(text: string, ink: Ink, fontPx = 320, shadow = 0
 
 /** Where each word sits on screen at the start, and how deep in the scene. */
 const PLACE = [
-  { left: 0.045, centerY: 0.585, font: 0.185, z: -5.5, ink: INK.ivory, dim: 0.9 }, // CHEMISTRY: behind the structure
-  { left: 0.115, centerY: 0.735, font: 0.185, z: 0.4, ink: INK.sage, dim: 1 }, //     reasoned: through it
-  { left: 0.04, centerY: 0.9, font: 0.185, z: 7.5, ink: INK.ivory, dim: 1 }, //       by machines.: in front
+  { left: 0.045, centerY: 0.585, font: 0.185, z: -5.5, ink: INK.slate, dim: 0.9 }, // CHEMISTRY: behind the structure
+  { left: 0.115, centerY: 0.735, font: 0.185, z: 0.4, ink: INK.teal, dim: 1 }, //     reasoned: through it
+  { left: 0.04, centerY: 0.9, font: 0.185, z: 7.5, ink: INK.slate, dim: 1 }, //       by machines.: in front
 ] as const;
 
 export interface Headline {
@@ -277,7 +277,7 @@ export interface Brand {
 const BRAND_FONT = 300;
 
 export function createBrand(): Brand {
-  const ink = { solid: "rgb(232,228,216)", line: "rgba(214,164,91,0.95)", hex: 0xe8e4d8, lineHex: 0xd6a45b };
+  const ink = { solid: "rgb(29,51,57)", line: "rgba(18,108,103,0.95)", hex: 0x1d3339, lineHex: 0x126c67 };
   const plane = createTextPlane("Vesyn", ink, BRAND_FONT, 0, true);
   const soft = createTextPlane("Vesyn", ink, BRAND_FONT, 7, true); // its shadow: a little depth, not an effect
   const mesh = plane.mesh;
