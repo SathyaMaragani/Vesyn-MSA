@@ -99,12 +99,12 @@ function MolNode({ m }: { m: GraphMol }) {
   return (
     <g transform={`translate(${m.x} ${m.y - MOL_H / 2})`}>
       <rect width={MOL_W} height={MOL_H} fill="rgb(var(--nc-panel))" stroke={border} strokeOpacity={m.isTarget ? 0.8 : 0.5} strokeWidth={1} />
-      <MoleculeSvg smiles={m.smiles} width={MOL_W - 8} height={MOL_H - 34} x={4} y={4} bg="#0f141a" />
-      <text x={6} y={MOL_H - 20} fontSize="8.5" fill="rgb(154 171 186)" fontFamily="var(--nc-font-data)">
+      <MoleculeSvg smiles={m.smiles} width={MOL_W - 8} height={MOL_H - 34} x={4} y={4} />
+      <text x={6} y={MOL_H - 20} fontSize="8.5" style={{ fill: "rgb(var(--nc-mid))" }} fontFamily="var(--nc-font-data)">
         {m.smiles.length > 24 ? `${m.smiles.slice(0, 23)}…` : m.smiles}
         <title>{m.smiles}</title>
       </text>
-      <text x={6} y={MOL_H - 7} fontSize="8.5" letterSpacing="0.1em" fill={m.isTarget ? "rgb(var(--nc-cyan))" : TONE[tone]} fontFamily="var(--nc-font-data)">
+      <text x={6} y={MOL_H - 7} fontSize="8.5" letterSpacing="0.1em" fill={m.isTarget ? "rgb(var(--nc-cyan))" : tone === "dim" ? "rgb(var(--nc-lo))" : TONE[tone]} fontFamily="var(--nc-font-data)">
         {label}
       </text>
     </g>
@@ -123,7 +123,7 @@ function RxnNode({ r, selected, onSelect }: { r: GraphRxn; selected: boolean; on
     <g onClick={onSelect} style={{ cursor: "pointer" }} role="button" aria-label={`Reaction step ${r.step}`} tabIndex={0} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect()}>
       {selected && <circle cx={cx} cy={r.y} r={22} fill="none" stroke="rgb(var(--nc-cyan))" strokeWidth={1.4} />}
       <circle cx={cx} cy={r.y} r={16} fill="rgb(var(--nc-panel))" stroke={TONE[tone]} strokeWidth={2.2} />
-      <text x={cx} y={r.y + 4} textAnchor="middle" fontSize="12" fontWeight={600} fill="rgb(232 241 248)" fontFamily="var(--nc-font-data)">
+      <text x={cx} y={r.y + 4} textAnchor="middle" fontSize="12" fontWeight={600} style={{ fill: "rgb(var(--nc-hi))" }} fontFamily="var(--nc-font-data)">
         {r.step}
       </text>
       {pips.map((p, i) => (

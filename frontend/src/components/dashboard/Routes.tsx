@@ -25,7 +25,7 @@ function Tile({ smiles, caption, inStock }: { smiles: string; caption: string; i
   return (
     <figure className="m-0 flex w-[104px] shrink-0 flex-col items-center">
       <div className="flex h-[88px] w-[104px] items-center justify-center rounded-lg border border-nc-line bg-nc-base/70">
-        <MoleculeDrawing smiles={smiles} width={100} height={84} bg="#161815" />
+        <MoleculeDrawing smiles={smiles} width={100} height={84} />
       </div>
       <figcaption className="mt-1.5 w-full truncate text-center text-[10px] text-nc-mid" title={smiles}>
         {caption}

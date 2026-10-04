@@ -53,3 +53,9 @@ export const ELEMENT_RADIUS: Record<string, number> = { C: 0.27, N: 0.29, O: 0.2
 
 export const elementHex = (el: string): number => ELEMENT_HEX[el] ?? 0x9aabba;
 export const elementCss = (el: string): string => `#${elementHex(el).toString(16).padStart(6, "0")}`;
+
+/** The same element in DOM and SVG drawings: a CSS value the page's palette resolves, so a label reads on white
+ *  and on the graphite scenes alike (app.css --el-*). Canvas and WebGL cannot resolve CSS variables; they use
+ *  elementCss / elementHex. */
+const LABELLED = new Set(["C", "N", "O", "S", "P", "F", "Cl", "Br", "I", "B", "H"]);
+export const elementColor = (el: string): string => `rgb(var(--el-${LABELLED.has(el) ? el.toLowerCase() : "x"}))`;

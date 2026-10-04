@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "A live multi-agent chemistry research facility: planning, validation and critique with every step auditable.",
 };
 
-export const viewport: Viewport = { themeColor: "#10110f", colorScheme: "dark" };
+export const viewport: Viewport = { themeColor: "#f5f9f8", colorScheme: "light" };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (

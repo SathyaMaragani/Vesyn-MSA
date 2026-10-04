@@ -46,7 +46,7 @@ function Chain({ card }: { card: RouteCard }) {
             </div>
             {/* a viewBox wrapper, so the drawing fills whatever width the phone gives it */}
             <svg viewBox="0 0 300 120" className="my-1 h-[120px] w-full">
-              <MoleculeSvg smiles={mol.smiles} width={300} height={120} bg="rgb(28 30 26)" />
+              <MoleculeSvg smiles={mol.smiles} width={300} height={120} />
             </svg>
             <p className="break-all font-data text-[9.5px] leading-snug text-nc-lo">{mol.smiles}</p>
           </div>

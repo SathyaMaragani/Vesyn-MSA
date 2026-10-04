@@ -17,7 +17,14 @@ export interface MoleculeMesh {
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-export function createMoleculeMesh(mol: Molecule): MoleculeMesh {
+/** Colours for a mesh: atoms by element, and one bond colour. Unset, the scenes' own (elementHex, copper bonds). */
+export interface MeshColors {
+  atom?: (element: string) => number;
+  bond?: number;
+}
+
+export function createMoleculeMesh(mol: Molecule, colors: MeshColors = {}): MoleculeMesh {
+  const atomColor = colors.atom ?? elementHex;
   const { graph, pos3 } = mol;
   const n = graph.atoms.length;
   const group = new THREE.Group();
@@ -40,7 +47,7 @@ export function createMoleculeMesh(mol: Molecule): MoleculeMesh {
     m4.scale.setScalar(r);
     m4.updateMatrix();
     atoms.setMatrixAt(i, m4.matrix);
-    const c = new THREE.Color(elementHex(a.element));
+    const c = new THREE.Color(atomColor(a.element));
     baseColors.push(c);
     atoms.setColorAt(i, c);
   });
@@ -51,7 +58,7 @@ export function createMoleculeMesh(mol: Molecule): MoleculeMesh {
 
   // bonds: order 1 -> one cylinder, 2 -> two, 3 -> three, aromatic -> one thick + one thin
   const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
-  const bondMat = new THREE.MeshStandardMaterial({ color: 0x9b7a5f, roughness: 0.5, metalness: 0.3 });
+  const bondMat = new THREE.MeshStandardMaterial({ color: colors.bond ?? 0x9b7a5f, roughness: 0.5, metalness: 0.3 });
   const parts: { a: number; b: number; offset: number; radius: number; bond: number }[] = [];
   graph.bonds.forEach((b, bi) => {
     if (b.order === 1) parts.push({ a: b.a, b: b.b, offset: 0, radius: 0.075, bond: bi });

@@ -3,31 +3,91 @@
 @tailwind utilities;
 
 /*
- * Vesyn laptop workspace - design tokens.
- * "Cinematic scientific operating system": graphite, cool-white type, one
- * restrained cyan accent. Colour carries meaning and nothing else:
- *   cyan = in progress / selected     green = validated, completed
+ * Vesyn design tokens: one palette for the whole product, the website and the phone app alike, so they
+ * read as the same thing. A light, trusted ground - porcelain, white surfaces, slate type - with one deep
+ * teal accent. Colour carries meaning and nothing else:
+ *   teal = in progress / selected     green = validated, completed
  *   amber = scrutiny, warning         red = failed, refused
+ * Every shade that carries text reads at 4.5:1 or better on the light surfaces.
  * Channels are space-separated RGB so Tailwind opacity modifiers work.
+ *
+ * The immersive 3D views (the hero, the lab's facility world) keep the original graphite palette under
+ * .nc-scene: they are lit for darkness, and their overlays were drawn against it. Inside a scene,
+ * .nc-light brings the light palette back for a document that sits over it.
  */
-:root {
+:root,
+.nc-light,
+.nc-mobile-theme,
+.nc-mobile {
+  color-scheme: light;
+  --nc-base: 245 249 248; /* #F5F9F8 porcelain */
+  --nc-raised: 255 255 255;
+  --nc-panel: 255 255 255;
+  --nc-panel-2: 235 244 241;
+  --nc-line: 215 228 224;
+  --nc-line-strong: 168 193 184;
+  --nc-hi: 29 51 57; /* #1D3339 slate */
+  --nc-mid: 65 87 94;
+  --nc-lo: 91 113 117;
+  /* "cyan" is the historical token name: the accent for in-progress / selected, now deep teal */
+  --nc-cyan: 18 108 103; /* #126C67 */
+  --nc-ok: 43 111 79;
+  --nc-warn: 139 92 25;
+  --nc-bad: 177 63 62;
+  --nc-copper: 157 91 55;
+  --nc-stone: 92 116 112;
+  /* atom labels in 2D drawings: the conventional CPK hues, darkened to read on white (worst 4.99:1) */
+  --el-c: 29 51 57;
+  --el-n: 37 78 160;
+  --el-o: 178 34 34;
+  --el-s: 122 94 0;
+  --el-p: 168 78 0;
+  --el-f: 26 112 66;
+  --el-cl: 24 110 58;
+  --el-br: 139 58 28;
+  --el-i: 102 45 145;
+  --el-b: 150 74 56;
+  --el-h: 65 87 94;
+  --el-x: 65 87 94;
+  /* a surface's lift: hairline shadows, where a dark ground needed glows */
+  --nc-shadow: 0 1px 2px rgb(29 51 57 / 0.04), 0 2px 8px rgb(29 51 57 / 0.04);
+}
+
+/* The graphite palette, for the scenes that are lit for darkness. */
+.nc-scene {
+  color-scheme: dark;
   --nc-base: 16 17 15; /* #10110F graphite */
-  --nc-raised: 25 27 24; /* #191B18 */
-  --nc-panel: 35 36 31; /* #23241F warm surface */
+  --nc-raised: 25 27 24;
+  --nc-panel: 35 36 31;
   --nc-panel-2: 45 46 40;
   --nc-line: 54 55 48;
   --nc-line-strong: 84 84 73;
   --nc-hi: 232 228 216; /* #E8E4D8 warm off-white */
-  --nc-mid: 169 167 156; /* #A9A79C */
+  --nc-mid: 169 167 156;
   --nc-lo: 122 120 110;
-  /* "cyan" is the historical token name: the accent for in-progress / selected, now mineral sage */
-  --nc-cyan: 143 175 154; /* #8FAF9A */
-  --nc-ok: 185 201 138; /* validated: pale lichen, warmer than the sage accent */
-  --nc-warn: 214 164 91; /* #D6A45B amber */
-  --nc-bad: 205 100 78; /* oxidised copper-red */
-  --nc-copper: 184 117 82; /* #B87552 */
-  --nc-stone: 201 193 168; /* #C9C1A8 */
+  --nc-cyan: 143 175 154; /* #8FAF9A mineral sage */
+  --nc-ok: 185 201 138;
+  --nc-warn: 214 164 91;
+  --nc-bad: 205 100 78;
+  --nc-copper: 184 117 82;
+  --nc-stone: 201 193 168;
+  /* lib/chem/molecule.ts ELEMENT_HEX: the colours the 3D scenes draw atoms in */
+  --el-c: 201 193 168;
+  --el-n: 214 164 91;
+  --el-o: 184 117 82;
+  --el-s: 224 179 90;
+  --el-p: 255 159 90;
+  --el-f: 127 216 176;
+  --el-cl: 111 207 151;
+  --el-br: 201 138 94;
+  --el-i: 168 138 106;
+  --el-b: 232 184 160;
+  --el-h: 232 228 216;
+  --el-x: 154 171 186;
+  --nc-shadow: none;
+}
 
+:root {
   --nc-font-ui: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
   --nc-font-data: "Cascadia Mono", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
 }
@@ -233,28 +293,19 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
   }
 }
 
-/*
- * The dashboard's scope (overview and search). It shares the rest of Vesyn's palette - the same graphite surfaces,
- * type, and status colours as the lab - and sets only its accent, so the pages read as one product.
- */
-.nc-dash {
-  --nc-cyan: 142 165 143; /* #8EA58F sage */
-}
-
 @layer components {
-  /* a panel: rounded, hairline border, a faint top light in the accent */
+  /* a panel: rounded, hairline border, a white surface lifted off the porcelain ground */
   .nc-card {
     @apply relative min-w-0 rounded-[14px] border border-nc-line;
-    background:
-      radial-gradient(120% 60% at 50% 0%, rgb(var(--nc-cyan) / 0.05), transparent 60%),
-      linear-gradient(180deg, rgb(var(--nc-panel) / 0.92), rgb(var(--nc-raised) / 0.92));
+    background: rgb(var(--nc-panel));
+    box-shadow: var(--nc-shadow);
   }
-  /* the selected thing on the page (the recommended route): lit edge and glow */
+  /* the selected thing on the page (the recommended route): a teal edge and a slightly deeper lift */
   .nc-card-lit {
-    border-color: rgb(var(--nc-cyan) / 0.7);
+    border-color: rgb(var(--nc-cyan) / 0.55);
     box-shadow:
-      0 0 0 1px rgb(var(--nc-cyan) / 0.18),
-      0 0 32px -10px rgb(var(--nc-cyan) / 0.45);
+      0 0 0 1px rgb(var(--nc-cyan) / 0.12),
+      0 6px 20px -8px rgb(29 51 57 / 0.14);
   }
   .nc-title {
     @apply whitespace-nowrap font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-nc-hi;
@@ -265,14 +316,12 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
   .nc-btn {
     @apply nc-focus inline-flex items-center gap-1.5 rounded-md border border-nc-line-strong px-2.5 py-1 font-data text-[10.5px] text-nc-hi transition-colors hover:border-nc-cyan/70 hover:text-nc-cyan;
   }
-  /* an agent's glowing ring */
+  /* an agent's ring: teal and filled once it has worked - a soft halo, not a neon glow */
   .nc-orb {
     @apply relative flex items-center justify-center rounded-full border-2;
     border-color: rgb(var(--nc-cyan) / 0.85);
-    background: radial-gradient(circle at 50% 40%, rgb(var(--nc-cyan) / 0.16), rgb(var(--nc-base)) 70%);
-    box-shadow:
-      0 0 18px -2px rgb(var(--nc-cyan) / 0.55),
-      inset 0 0 12px rgb(var(--nc-cyan) / 0.22);
+    background: radial-gradient(circle at 50% 40%, rgb(var(--nc-cyan) / 0.12), rgb(var(--nc-panel)) 72%);
+    box-shadow: 0 0 0 4px rgb(var(--nc-cyan) / 0.07);
   }
   .nc-orb-dim {
     border-color: rgb(var(--nc-line-strong));
@@ -284,14 +333,10 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
 @keyframes nc-orb-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 18px -2px rgb(var(--nc-cyan) / 0.55),
-      inset 0 0 12px rgb(var(--nc-cyan) / 0.22);
+    box-shadow: 0 0 0 4px rgb(var(--nc-cyan) / 0.07);
   }
   50% {
-    box-shadow:
-      0 0 34px 4px rgb(var(--nc-cyan) / 0.75),
-      inset 0 0 18px rgb(var(--nc-cyan) / 0.35);
+    box-shadow: 0 0 0 9px rgb(var(--nc-cyan) / 0.14);
   }
 }
 .nc-orb-live {
@@ -306,28 +351,9 @@ html.nc-cursor-live :is(input, textarea, select, [contenteditable="true"]) {
 /*
  * ---- the assistant (mobile) ----------------------------------------------------------------------
  *
- * Light assistant palette: porcelain surfaces, slate text and deep teal actions.
- * Status colours retain their meaning and remain legible on white surfaces.
+ * The phone app uses the shared light palette at the top of this file; below are only the shapes a
+ * touch screen needs.
  */
-.nc-mobile-theme,
-.nc-mobile {
-  color-scheme: light;
-  --nc-base: 245 249 248; /* #F5F9F8 */
-  --nc-raised: 255 255 255;
-  --nc-panel: 255 255 255;
-  --nc-panel-2: 235 244 241;
-  --nc-line: 215 228 224;
-  --nc-line-strong: 168 193 184;
-  --nc-hi: 29 51 57; /* slate */
-  --nc-mid: 65 87 94;
-  --nc-lo: 91 113 117;
-  --nc-cyan: 18 108 103; /* deep teal */
-  --nc-ok: 43 111 79;
-  --nc-warn: 139 92 25;
-  --nc-bad: 177 63 62;
-  --nc-copper: 157 91 55;
-  --nc-stone: 92 116 112;
-}
 .nc-mobile {
   overflow-wrap: anywhere;
   /* the phone's own chrome heights, so screens can reserve exactly what the nav and bar take */

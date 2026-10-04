@@ -183,7 +183,7 @@ export function RoutesWorkspace() {
                 <button
                   type="button"
                   onClick={() => setSel(r.rank)}
-                  className={cx("nc-focus w-full border-b border-nc-line/60 px-3 py-2 text-left hover:bg-nc-panel-2", chosen?.rank === r.rank && "bg-nc-cyan/[0.07]")}
+                  className={cx("nc-focus w-full border-b border-nc-line/60 px-3 py-2 text-left hover:bg-nc-panel-2", chosen?.rank === r.rank && "bg-nc-panel shadow-[inset_3px_0_0_rgb(var(--nc-cyan))]")}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-data text-[12px] text-nc-hi">#{r.rank} · route {r.route_id}</span>

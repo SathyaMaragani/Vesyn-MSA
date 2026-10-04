@@ -61,7 +61,7 @@ function LabLayer({ children }: { children: React.ReactNode }) {
   }, [toggleHud]);
 
   return (
-    <div className="nc-fade-in relative h-screen min-w-[1120px] overflow-hidden bg-nc-base text-nc-hi">
+    <div className="nc-scene nc-fade-in relative h-screen min-w-[1120px] overflow-hidden bg-nc-base text-nc-hi">
       <FacilityCanvas />
       {/* the room's own darkness at its edges: a vignette, one gradient layer */}
       <div aria-hidden className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_50%_46%,transparent_52%,rgba(8,9,7,0.55)_100%)]" />
@@ -110,7 +110,7 @@ function LabLayer({ children }: { children: React.ReactNode }) {
           <section
             key={pathname}
             aria-label={sheetTitle}
-            className="nc-sheet-in pointer-events-auto absolute bottom-14 left-3 right-14 top-24 z-20 flex flex-col border border-nc-line-strong bg-nc-base/92 backdrop-blur-lg"
+            className="nc-light nc-sheet-in pointer-events-auto absolute bottom-14 left-3 right-14 top-24 z-20 flex flex-col border border-nc-line-strong bg-nc-base text-nc-hi shadow-[0_24px_60px_-20px_rgb(0_0_0/0.55)]"
           >
             <header className="flex h-9 shrink-0 items-center justify-between border-b border-nc-line px-4">
               <h1 className="font-data text-[11px] uppercase tracking-[0.18em] text-nc-hi">{sheetTitle}</h1>

@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { X } from "lucide-react";
 import { MoleculeDrawing } from "@/components/chemistry/MoleculeSvg";
 import { Field, NotReported, Panel, Tag } from "@/components/ui/primitives";
-import { elementCss, getMolecule } from "@/lib/chem/molecule";
+import { elementColor, getMolecule } from "@/lib/chem/molecule";
 import { neighborsOf } from "@/lib/chem/smiles";
 import { useLabUI } from "@/lib/store/LabUI";
 import { useNeo, useRunResult } from "@/lib/store/NeoProvider";
@@ -86,7 +86,7 @@ export function MoleculePanel() {
                   return (
                     <div className="space-y-1 font-data text-[11px] text-nc-mid">
                       <div>
-                        <span style={{ color: elementCss(a.element) }} className="text-sm font-semibold">{a.element}</span>
+                        <span style={{ color: elementColor(a.element) }} className="text-sm font-semibold">{a.element}</span>
                         {a.aromatic ? " · aromatic" : ""}
                         {a.charge ? ` · charge ${a.charge > 0 ? "+" : ""}${a.charge}` : ""}
                       </div>
@@ -121,8 +121,8 @@ export function MoleculePanel() {
                   return (
                     <div className="space-y-1 font-data text-[11px] text-nc-mid">
                       <div>
-                        <span style={{ color: elementCss(a.element) }} className="text-sm font-semibold">{a.element}</span>
-                        <span className="text-nc-lo">{b.a}</span> — <span style={{ color: elementCss(c.element) }} className="text-sm font-semibold">{c.element}</span>
+                        <span style={{ color: elementColor(a.element) }} className="text-sm font-semibold">{a.element}</span>
+                        <span className="text-nc-lo">{b.a}</span> — <span style={{ color: elementColor(c.element) }} className="text-sm font-semibold">{c.element}</span>
                         <span className="text-nc-lo">{b.b}</span>
                       </div>
                       <div>{BOND_NAME[b.order] ?? `order ${b.order}`} bond</div>

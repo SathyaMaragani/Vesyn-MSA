@@ -7,7 +7,23 @@
 import React, { useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { createMoleculeMesh, type MoleculeMesh } from "@/components/world/moleculeMesh";
+import { createMoleculeMesh, type MeshColors, type MoleculeMesh } from "@/components/world/moleculeMesh";
+
+/** WebGL cannot resolve CSS variables, so the palette is read once off the element the stage draws into. */
+const LABELLED = new Set(["C", "N", "O", "S", "P", "F", "Cl", "Br", "I", "B", "H"]);
+function pageColors(el: Element | null): MeshColors {
+  if (!el) return {};
+  const css = getComputedStyle(el);
+  const hex = (name: string): number | null => {
+    const rgb = css.getPropertyValue(name).trim().split(/\s+/).map(Number);
+    return rgb.length === 3 && rgb.every((v) => Number.isFinite(v)) ? (rgb[0] << 16) | (rgb[1] << 8) | rgb[2] : null;
+  };
+  const bond = hex("--nc-lo");
+  return {
+    atom: (e) => hex(`--el-${LABELLED.has(e) ? e.toLowerCase() : "x"}`) ?? 0x41575e,
+    bond: bond ?? undefined,
+  };
+}
 import { useThreeStage } from "@/components/world/useThreeStage";
 import { getMolecule } from "@/lib/chem/molecule";
 
@@ -57,7 +73,7 @@ export function MoleculeStage({ smiles, className }: { smiles: string | null; cl
         }
         const res = want ? getMolecule(want) : null;
         if (res?.ok) {
-          const mesh = createMoleculeMesh(res.molecule);
+          const mesh = createMoleculeMesh(res.molecule, pageColors(containerRef.current));
           // fit the molecule to the stage whatever its size
           mesh.group.scale.setScalar(THREE.MathUtils.clamp(3.1 / Math.max(res.molecule.radius, 0.8), 0.35, 2.6));
           holder.add(mesh.group);

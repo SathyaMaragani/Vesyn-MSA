@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { elementCss, getMolecule } from "@/lib/chem/molecule";
+import { elementColor, getMolecule } from "@/lib/chem/molecule";
 
 interface Props {
   smiles: string;
@@ -22,16 +22,16 @@ interface Props {
  * arrangement is a layout, not a coordinate set from a chemistry engine; bond
  * orders, elements, charges and hydrogen counts come from the string itself.
  */
-export function MoleculeSvg({ smiles, width, height, x = 0, y = 0, bg = "#0b1016", highlight = null, onAtomClick }: Props) {
+export function MoleculeSvg({ smiles, width, height, x = 0, y = 0, bg = "rgb(var(--nc-panel))", highlight = null, onAtomClick }: Props) {
   const res = useMemo(() => getMolecule(smiles), [smiles]);
 
   if (!res.ok) {
     return (
       <svg x={x} y={y} width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-        <text x={width / 2} y={height / 2} textAnchor="middle" fill="rgb(248 113 113)" fontSize="9" fontFamily="var(--nc-font-data)">
+        <text x={width / 2} y={height / 2} textAnchor="middle" style={{ fill: "rgb(var(--nc-bad))" }} fontSize="9" fontFamily="var(--nc-font-data)">
           structure unreadable
         </text>
-        <text x={width / 2} y={height / 2 + 12} textAnchor="middle" fill="rgb(96 112 128)" fontSize="8" fontFamily="var(--nc-font-data)">
+        <text x={width / 2} y={height / 2 + 12} textAnchor="middle" style={{ fill: "rgb(var(--nc-lo))" }} fontSize="8" fontFamily="var(--nc-font-data)">
           {res.error.slice(0, 34)}
         </text>
       </svg>
@@ -59,7 +59,7 @@ export function MoleculeSvg({ smiles, width, height, x = 0, y = 0, bg = "#0b1016
   const X = (i: number) => pos2[i * 2] * scale + ox;
   const Y = (i: number) => pos2[i * 2 + 1] * scale + oy;
   const off = Math.max(2, scale * 0.11);
-  const stroke = "rgb(154 171 186)";
+  const stroke = "currentColor"; // the <svg> sets it: the page's mid ink, whichever palette is in force
 
   const lines: React.ReactNode[] = [];
   graph.bonds.forEach((b, k) => {
@@ -82,7 +82,7 @@ export function MoleculeSvg({ smiles, width, height, x = 0, y = 0, bg = "#0b1016
   });
 
   return (
-    <svg x={x} y={y} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Structure of ${smiles}`}>
+    <svg x={x} y={y} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Structure of ${smiles}`} style={{ color: "rgb(var(--nc-mid))" }}>
       {lines}
       {graph.atoms.map((a) => {
         const hetero = a.element !== "C" || a.charge !== 0;
@@ -92,9 +92,9 @@ export function MoleculeSvg({ smiles, width, height, x = 0, y = 0, bg = "#0b1016
           : "";
         return (
           <g key={a.index} onClick={onAtomClick ? () => onAtomClick(a.index) : undefined} style={onAtomClick ? { cursor: "pointer" } : undefined}>
-            {(hetero || isHi) && <circle cx={X(a.index)} cy={Y(a.index)} r={hetero ? 8 : 4} fill={isHi ? "rgb(143 175 154 / 0.35)" : bg} />}
+            {(hetero || isHi) && <circle cx={X(a.index)} cy={Y(a.index)} r={hetero ? 8 : 4} style={{ fill: isHi ? "rgb(var(--nc-cyan) / 0.25)" : bg }} />}
             {hetero && (
-              <text x={X(a.index)} y={Y(a.index) + 3.4} textAnchor="middle" fontSize="10" fontWeight={600} fill={elementCss(a.element)} fontFamily="var(--nc-font-data)">
+              <text x={X(a.index)} y={Y(a.index) + 3.4} textAnchor="middle" fontSize="10" fontWeight={600} style={{ fill: elementColor(a.element) }} fontFamily="var(--nc-font-data)">
                 {label}
               </text>
             )}
