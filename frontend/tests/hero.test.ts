@@ -211,6 +211,27 @@ describe("the camera always has the molecule in view (regression: it once stared
       assert.ok(inView >= 3, `only ${inView} atoms in view at p=${p.toFixed(2)}`);
     }
   });
+  // A smooth camera has continuous speed. Sampled in steps of 1/2000 of the journey, speed may not change by more
+  // than 10% from one step to the next anywhere it is really moving. A uniform spline played on uneven key times -
+  // and the clearance pass inserts keys at arbitrary times - fails this at every key: that was the lurch.
+  it("moves smoothly: speed never changes abruptly from one moment of the journey to the next", () => {
+    const dp = 0.0005;
+    const speed: number[] = [];
+    for (let p = 0; p + dp <= 1; p += dp) {
+      const a = cameraAt(keys, p).pos;
+      const b = cameraAt(keys, p + dp).pos;
+      speed.push(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / dp);
+    }
+    const median = [...speed].sort((x, y) => x - y)[speed.length >> 1];
+    let worst = 0;
+    let at = 0;
+    for (let i = 1; i < speed.length; i++) {
+      if (speed[i - 1] < 0.05 * median) continue; // nearly at rest: a relative change means nothing there
+      const change = Math.abs(speed[i] - speed[i - 1]) / speed[i - 1];
+      if (change > worst) [worst, at] = [change, i * dp];
+    }
+    assert.ok(worst < 0.1, `speed changes by ${(worst * 100).toFixed(0)}% in one step at p=${at.toFixed(3)}`);
+  });
   it("and the camera never passes through an atom (radius ~0.6 units)", () => {
     for (let p = 0; p <= 1.0001; p += 0.01) {
       const { pos } = cameraAt(keys, Math.min(1, p));

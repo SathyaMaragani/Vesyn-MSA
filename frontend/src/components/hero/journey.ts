@@ -205,44 +205,72 @@ export function buildKeys(path: V3[], radius: number, atoms: V3[] = path, rings:
 }
 
 /**
- * The spline between two safe keys can still dip toward an atom. Sample the finished path;
- * wherever it comes closer than RIDE.clearance, insert a key that pushes it back out. A few
- * passes converge (each insertion only ever moves the path away from atoms).
+ * The spline between two safe keys can still dip toward an atom. Sample the finished path, find the deepest
+ * near-miss, and move the two keys around it outward - each by its share, the nearer key the more - then look
+ * again, until the whole path keeps RIDE.clearance. The opening and the arrival never move: the arrival frames
+ * the name.
+ *
+ * It moves keys rather than adding them. Inserting a key per near-miss (as this once did) packed dozens of keys
+ * a few thousandths apart wherever the path skimmed atoms, and the spline, forced through that jagged run of
+ * points, sped up and slowed down from one moment to the next.
  */
 function relaxClearance(keys: CamKey[], atoms: V3[]): CamKey[] {
-  const out = [...keys];
+  const out = keys.map((k) => ({ ...k }));
   const margin = RIDE.clearance * 1.15;
-  for (let pass = 0; pass < 12; pass++) {
-    let fixed = 0;
+  const last = out.length - 1;
+  for (let pass = 0; pass < 60; pass++) {
+    let deficit = 0;
+    let at = 0;
+    let away: V3 = [0, 0, 0];
     for (let p = 0.2; p <= 1.0001; p += 0.0025) {
-      const c = cameraAt(out, Math.min(1, p));
-      let nearest = Infinity;
-      let at: V3 = atoms[0];
+      const q = Math.min(1, p);
+      const c = cameraAt(out, q);
       for (const a of atoms) {
         const d = len(sub(a, c.pos));
-        if (d < nearest) {
-          nearest = d;
-          at = a;
+        if (d < RIDE.clearance && margin - d > deficit) {
+          deficit = margin - d;
+          at = q;
+          away = d > 1e-6 ? norm(sub(c.pos, a)) : [0, 1, 0];
         }
       }
-      if (nearest >= RIDE.clearance) continue;
-      if (out.some((k) => Math.abs(k.t - p) < 0.001)) continue;
-      const away = norm(sub(c.pos, at));
-      const idx = out.findIndex((k) => k.t > p);
-      out.splice(idx < 0 ? out.length : idx, 0, { t: Math.min(1, p), pos: add(at, mul(away, margin)), look: c.look });
-      fixed++;
     }
-    if (fixed === 0) break;
+    if (deficit === 0) break;
+    let i = 0;
+    while (i < last - 1 && at > out[i + 1].t) i++;
+    const u = clamp01((at - out[i].t) / (out[i + 1].t - out[i].t || 1));
+    if (i > 0) out[i] = { ...out[i], pos: add(out[i].pos, mul(away, deficit * (1 - u))) };
+    if (i + 1 < last) out[i + 1] = { ...out[i + 1], pos: add(out[i + 1].pos, mul(away, deficit * u)) };
   }
   return out;
 }
 
-/** Uniform Catmull-Rom through four control values. */
-function catmull(p0: V3, p1: V3, p2: V3, p3: V3, u: number): V3 {
+/**
+ * A key's velocity: the slope, at the key, of the parabola through it and its two neighbours (the Bessel
+ * tangent), measured in progress rather than key count. Where a long slow segment meets a short fast one it
+ * leans toward the short one, so the change of speed is spread over the long segment instead of crammed into
+ * the short. (A uniform Catmull-Rom on uneven key times changed speed abruptly at every key; a plain central
+ * difference leans the wrong way and surges.)
+ */
+function velocity(keys: CamKey[], i: number, of: (k: CamKey) => V3): V3 {
+  const last = keys.length - 1;
+  const slope = (a: CamKey, b: CamKey): V3 => (b.t > a.t ? mul(sub(of(b), of(a)), 1 / (b.t - a.t)) : [0, 0, 0]);
+  if (i <= 0) return slope(keys[0], keys[1]);
+  if (i >= last) return slope(keys[last - 1], keys[last]);
+  const h0 = keys[i].t - keys[i - 1].t;
+  const h1 = keys[i + 1].t - keys[i].t;
+  if (h0 + h1 <= 0) return [0, 0, 0];
+  return add(mul(slope(keys[i - 1], keys[i]), h1 / (h0 + h1)), mul(slope(keys[i], keys[i + 1]), h0 / (h0 + h1)));
+}
+
+/** Cubic Hermite over a segment `h` long, from p0 moving at v0 to p1 moving at v1. */
+function hermite(p0: V3, v0: V3, p1: V3, v1: V3, h: number, u: number): V3 {
   const u2 = u * u;
   const u3 = u2 * u;
-  const f = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
-  return [f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1]), f(p0[2], p1[2], p2[2], p3[2])];
+  const a = 2 * u3 - 3 * u2 + 1;
+  const b = (u3 - 2 * u2 + u) * h;
+  const c = -2 * u3 + 3 * u2;
+  const d = (u3 - u2) * h;
+  return [0, 1, 2].map((j) => a * p0[j] + b * v0[j] + c * p1[j] + d * v1[j]) as V3;
 }
 
 export function cameraAt(keys: CamKey[], progress: number): { pos: V3; look: V3 } {
@@ -251,10 +279,14 @@ export function cameraAt(keys: CamKey[], progress: number): { pos: V3; look: V3 
   while (i < keys.length - 2 && p > keys[i + 1].t) i++;
   const a = keys[i];
   const b = keys[i + 1];
-  const u = clamp01((p - a.t) / (b.t - a.t || 1));
-  const k0 = keys[Math.max(0, i - 1)];
-  const k3 = keys[Math.min(keys.length - 1, i + 2)];
-  return { pos: catmull(k0.pos, a.pos, b.pos, k3.pos, u), look: catmull(k0.look, a.look, b.look, k3.look, u) };
+  const h = b.t - a.t || 1;
+  const u = clamp01((p - a.t) / h);
+  const pos = (k: CamKey) => k.pos;
+  const look = (k: CamKey) => k.look;
+  return {
+    pos: hermite(a.pos, velocity(keys, i, pos), b.pos, velocity(keys, i + 1, pos), h, u),
+    look: hermite(a.look, velocity(keys, i, look), b.look, velocity(keys, i + 1, look), h, u),
+  };
 }
 
 /** The atom nearest a point, and how far (in scene units). Used by the instrument's "nearest atom" readout. */

@@ -2,13 +2,22 @@
 
 // ScrollController. The hero is a fixed full-screen stage, so "scroll" is spent on
 // progress instead of moving the page: wheel, touch drag and keys push a target,
-// and a per-frame ease brings the shown progress to it. Frame-rate independent.
+// and a critically damped spring brings the shown progress to it. Frame-rate independent.
+//
+// A spring, not an ease: an ease's speed is proportional to the distance left, so every wheel notch kicked the
+// camera's speed up at once and let it decay - a lurch per notch. A spring keeps position AND velocity
+// continuous, so a notch accelerates the camera instead. A long jump (End, the chapter rail) is capped at
+// MAX_SPEED, so it glides rather than flying the whole film in under half a second.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HeroBus } from "./heroBus";
 import { END_THRESHOLD, chapterAt, clamp01 } from "./journey";
 
 /** Wheel distance (px) needed to travel the whole film. */
 const TRAVEL_PX = 4400;
+/** Spring stiffness (1/s): how quickly the shown progress catches up; critically damped, so it never overshoots. */
+const OMEGA = 4.6;
+/** The fastest the film may play, in progress per second: a jump end to end takes about two seconds. */
+const MAX_SPEED = 0.55;
 
 const KEYS: Record<string, number> = {
   ArrowDown: 0.035,
@@ -79,12 +88,28 @@ export function useScrollProgress(bus: HeroBus) {
 
     let raf = 0;
     let prev = performance.now();
+    let speed = 0; // progress per second
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.1, (now - prev) / 1000);
       prev = now;
-      bus.progress += (target.current - bus.progress) * (1 - Math.exp(-dt * 4.2));
-      if (Math.abs(target.current - bus.progress) < 0.0005) bus.progress = target.current;
+      // the exact step of a critically damped spring toward the target: stable at any frame time
+      const x = bus.progress - target.current;
+      const decay = Math.exp(-OMEGA * dt);
+      const pull = (speed + OMEGA * x) * dt;
+      let gap = (x + pull) * decay; // how far the shown progress is from the target
+      speed = (speed - OMEGA * pull) * decay;
+      if (Math.abs(speed) > MAX_SPEED) {
+        // over the limit: glide at it, so position and speed stay in step - and never past the target
+        speed = Math.sign(speed) * MAX_SPEED;
+        gap = x + speed * dt;
+        if (Math.sign(gap) !== Math.sign(x)) [gap, speed] = [0, 0];
+      }
+      bus.progress = clamp01(target.current + gap);
+      if (Math.abs(target.current - bus.progress) < 0.0002 && Math.abs(speed) < 0.002) {
+        bus.progress = target.current;
+        speed = 0;
+      }
       const next: ScrollPhase = { chapter: chapterAt(bus.progress), atEnd: bus.progress >= END_THRESHOLD };
       if (next.chapter !== last.current.chapter || next.atEnd !== last.current.atEnd) {
         last.current = next;
