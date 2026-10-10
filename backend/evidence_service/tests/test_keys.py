@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.analysis import reuse_keys  # noqa: E402
+from app.analysis import explain_changes, reuse_keys  # noqa: E402
 from app.retrieval import _scope  # noqa: E402
 
 
@@ -27,6 +27,19 @@ def test_renamed_findings_keep_their_previous_key():
     ]
     reuse_keys(now, previous)
     assert [f["key"] for f in now] == ["gef-coupling", "gef-safety", "gef-single-supplier", "pilot-scale"]
+
+
+def test_a_status_change_is_explained_when_the_model_stays_silent():
+    old = {**finding("gef-coupling", "Coupling yield fell at 120 g", "batch"), "evidence_status": "fix_unverified"}
+    now = [
+        {**finding("gef-coupling", "Coupling yield fell at 120 g", "batch", "repeat"), "evidence_status": "resolved",
+         "change_reason": ""},
+        {**finding("other", "Unrelated", "batch"), "evidence_status": "supported", "change_reason": ""},
+    ]
+    explain_changes(now, [old], {"proj-batch-v1": "Batch Record", "proj-repeat-v1": "Repeat Batch Report"})
+    assert now[0]["change_reason"] == (
+        "Evidence status changed from fix unverified to resolved, based on newly cited evidence: Repeat Batch Report.")
+    assert now[1]["change_reason"] == ""
 
 
 def test_date_range_is_split_from_exact_filters():

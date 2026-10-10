@@ -29,7 +29,9 @@ ID_PATTERN = re.compile(r"\b[A-Z]{2,5}-\d{2,}(?:-\d+)?\b")  # INC-2025-014, TD-1
 
 # Risk area -> (question the area answers, focused query templates per service).
 AREAS = {
-    "scalability": ("Do batch records support the yields and conditions the route proposal claims?", [
+    # Asked about the problem, not about the proposal: "does the proposal match the batch record" stays
+    # false after a fix, so a finding framed that way can never resolve.
+    "scalability": ("Does each step keep its yield and purity on scale-up, and are scale-up failures fixed and verified?", [
         "{service} route proposal claimed yield for the step",
         "{service} batch record scale-up yield impurity deviation",
         "{service} process change corrective action status",
@@ -338,6 +340,24 @@ def reuse_keys(findings: list[dict], previous: list[dict]) -> None:
             renamed.add(i)
 
 
+def explain_changes(findings: list[dict], previous: list[dict], titles: dict[str, str]) -> None:
+    """Say why a finding's status changed when the model did not: old status, new status, new documents."""
+    def cited(f):
+        return {c["source_id"] for side in ("supporting", "contradicting") for c in f[side]}
+
+    before = {p["key"]: p for p in previous}
+    for f in findings:
+        old = before.get(f["key"])
+        if not old or old["evidence_status"] == f["evidence_status"] or f["change_reason"].strip():
+            continue
+        new = sorted({titles[s] for s in cited(f) - cited(old) if s in titles})
+        f["change_reason"] = (
+            f"Evidence status changed from {old['evidence_status'].replace('_', ' ')} to "
+            f"{f['evidence_status'].replace('_', ' ')}"
+            + (f", based on newly cited evidence: {'; '.join(new)}." if new else ".")
+        )
+
+
 def investigate(project: dict, category: str, question: str, queries: list[str],
                 previous: list[dict] = (), model_spec: str | None = None) -> dict:
     """Answer one question from the project's evidence. Pure pipeline, no writes."""
@@ -348,6 +368,8 @@ def investigate(project: dict, category: str, question: str, queries: list[str],
         model_spec or default_model(),
     )
     findings, total, rejected = validate(raw, evidence)
+    reuse_keys(findings, list(previous))
+    explain_changes(findings, list(previous), {c["source_id"]: c["title"] for c in chunks})
     return {
         "category": category, "question": question, "queries": queries,
         "retrieved_chunk_ids": [c["_id"] for c in chunks], "findings": findings,
@@ -392,7 +414,6 @@ def run_investigation(project_id: str, model_spec: str | None = None) -> dict:
                 f for f in prev_findings if f["category"] == category and f["question"] == question
             ], model_spec)
             model_version = res["model_version"]
-            reuse_keys(res["findings"], [f for f in prev_findings if f["category"] == category])
             docs = []
             for f in res.pop("findings"):
                 key = base = slug(f["key"]) or "finding"
