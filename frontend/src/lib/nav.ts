@@ -5,7 +5,7 @@ export const NAV = [
   { href: "/lab/routes", label: "Synthesis" },
   { href: "/lab/chemistry", label: "Chemistry" },
   { href: "/lab/evidence", label: "Evidence" },
-  { href: "/dashboard/documents", label: "Documents" },
+  { href: "/dashboard/rag", label: "RAG Engine" },
   { href: "/lab/intelligence", label: "Intelligence" },
   { href: "/lab", label: "Lab" },
   { href: "/lab/audit", label: "Audit" },

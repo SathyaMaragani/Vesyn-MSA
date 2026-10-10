@@ -1,26 +1,38 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
-import { accessKey, get, post, type Project, setAccessKey } from "./api";
-import Evidence from "./Evidence";
+// RAG ENGINE: ask the lab's own documents. Laid out like Search: one question bar, questions that work,
+// then what stands behind the answers - the findings of the last review and the indexed sources.
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Play, Search, Sparkles } from "lucide-react";
+import { accessKey, type Answer, day, get, post, type Project, setAccessKey, where } from "./api";
+import Sources from "./Evidence";
 import FindingDetail from "./FindingDetail";
-import Register from "./Register";
-import { button, buttonQuiet, Card, ErrorNote, input } from "./ui";
+import Findings from "./Register";
+import { Badge, button, buttonQuiet, Card, field, input } from "./ui";
 
-type View = "evidence" | "register";
+const EXAMPLES = [
+  "Has the gefitinib coupling fix been verified?",
+  "Has this route been run at 10 kg scale?",
+  "Which starting material has a single supplier?",
+  "What caused the low yield in batch GEF-0142?",
+];
 
-export default function App() {
+export default function DocumentsApp() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
-  const [view, setView] = useState<View>("evidence");
   const [findingId, setFindingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [key, setKey] = useState("");
-
-  useEffect(() => setKey(accessKey()), []);
+  const [models, setModels] = useState<string[]>([]);
+  const [model, setModel] = useState("");
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [asking, setAsking] = useState(false);
+  const bar = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setKey(accessKey());
     get<Project[]>("/projects")
       .then((list) => {
         setProjects(list);
@@ -28,9 +40,28 @@ export default function App() {
         setCreating(list.length === 0);
       })
       .catch((e) => setError(e.message));
+    get<{ default: string; models: string[] }>("/models")
+      .then((m) => {
+        setModels(m.models);
+        setModel(m.models.includes(m.default) ? m.default : (m.models[0] ?? ""));
+      })
+      .catch(() => undefined);
   }, []);
 
   const project = projects.find((p) => p.id === projectId);
+
+  async function ask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project) return;
+    setAsking(true);
+    setError("");
+    try {
+      setAnswer(await post<Answer>(`/projects/${project.id}/ask`, { question, model: model || null }));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setAsking(false);
+  }
 
   async function createProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +78,7 @@ export default function App() {
       setProjectId(created.id);
       setCreating(false);
       setFindingId(null);
-      setView("evidence");
+      setAnswer(null);
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -55,70 +86,98 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl py-2">
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-xl font-semibold">Lab documents</h1>
-        <label className="text-sm text-slate-600">
-          Project{" "}
-          <select
-            className={input}
-            value={projectId}
-            onChange={(e) => {
-              setProjectId(e.target.value);
-              setFindingId(null);
-            }}
-          >
+    <div className="mx-auto max-w-[1100px] pt-6">
+      <div className="text-center">
+        <div className="font-data text-[11px] uppercase tracking-[0.3em] text-nc-cyan">RAG Engine</div>
+        <h1 className="mt-3 text-[40px] font-semibold leading-tight tracking-tight text-nc-hi">What do the lab’s documents say?</h1>
+        <p className="mt-2 text-[13px] text-nc-mid">Ask in plain words. Every answer quotes the passage it came from, or says it is not established.</p>
+      </div>
+
+      <form onSubmit={ask} className="nc-card nc-card-lit mt-8 flex items-center gap-3 p-2.5 pl-4">
+        <Search className="h-5 w-5 shrink-0 text-nc-cyan" aria-hidden />
+        <input
+          ref={bar}
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          required
+          minLength={3}
+          maxLength={500}
+          disabled={!project}
+          spellCheck={false}
+          placeholder={project ? "Ask the documents: batch records, deviations, proposals, lab notes" : "Create a project first"}
+          aria-label="Question for the lab documents"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] text-nc-hi outline-none placeholder:text-nc-lo disabled:opacity-50"
+        />
+        <button type="submit" disabled={asking || !project} className="nc-focus flex h-11 items-center gap-2 rounded-lg bg-nc-cyan px-5 font-data text-[12px] font-semibold uppercase tracking-wider text-nc-base transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-nc-line disabled:text-nc-lo">
+          <Play className="h-3.5 w-3.5" aria-hidden /> {asking ? "Reading" : "Ask"}
+        </button>
+      </form>
+      {error && <p role="alert" className="mt-3 text-center font-data text-[12px] text-nc-bad">{error}</p>}
+
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        {EXAMPLES.map((ex) => (
+          <button key={ex} type="button" onClick={() => { setQuestion(ex); bar.current?.focus(); }} disabled={!project} className="nc-btn rounded-full px-3 py-1.5 text-[11.5px] disabled:opacity-50">
+            <Sparkles className="h-3 w-3 text-nc-cyan" aria-hidden /> {ex}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-end justify-center gap-4">
+        <label className={field}>
+          Project
+          <select className={input} value={projectId} onChange={(e) => { setProjectId(e.target.value); setFindingId(null); setAnswer(null); }}>
             {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className={field}>
+          Model
+          <select className={input} value={model} onChange={(e) => setModel(e.target.value)}>
+            {models.length === 0 && <option value="">server default</option>}
+            {models.map((m) => (
+              <option key={m} value={m}>
+                {m.replace(":", " · ")}
+                {m.startsWith("ollama:") ? " (local)" : ""}
               </option>
             ))}
           </select>
         </label>
-        <label className="text-sm text-slate-600">
-          Access key{" "}
+        <label className={field}>
+          Access key
           <input
             type="password"
             autoComplete="off"
-            className={`${input} w-44`}
+            className={`${input} w-48`}
             value={key}
-            placeholder="for uploads and reviews"
+            placeholder="to ask, upload or review"
             onChange={(e) => {
               setKey(e.target.value);
               setAccessKey(e.target.value.trim());
             }}
           />
         </label>
-        <button className={buttonQuiet} onClick={() => setCreating(!creating)}>
+        <button type="button" className={`${buttonQuiet} h-9`} onClick={() => setCreating(!creating)}>
           New project
         </button>
-      </header>
-
-      <ErrorNote message={error} />
+      </div>
 
       {creating && (
-        <Card title="Create project" className="mb-6">
+        <Card title="Create project" className="mt-6">
           <form onSubmit={createProject} className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
+            <label className={field}>
               Name
-              <input name="name" required className={`${input} mt-1 block w-full`} />
+              <input name="name" required className={input} />
             </label>
-            <label className="text-sm">
+            <label className={field}>
               Compounds (comma separated)
-              <input
-                name="services"
-                required
-                placeholder="gefitinib, erlotinib"
-                className={`${input} mt-1 block w-full`}
-              />
+              <input name="services" required placeholder="gefitinib, erlotinib" className={input} />
             </label>
-            <label className="text-sm sm:col-span-2">
-              Open questions to investigate (one per line, optional)
-              <textarea name="questions" rows={2} className={`${input} mt-1 block w-full`} />
+            <label className={`${field} sm:col-span-2`}>
+              Open questions to review (one per line, optional)
+              <textarea name="questions" rows={2} className={`${input} h-auto py-2`} />
             </label>
-            <p className="text-sm text-slate-600 sm:col-span-2">
-              Every project is reviewed for scalability, recurring failures, and supply and safety.
-            </p>
+            <p className="text-[11.5px] text-nc-lo sm:col-span-2">Every project is reviewed for scalability, recurring failures, and supply and safety.</p>
             <div>
               <button className={button}>Create project</button>
             </div>
@@ -126,34 +185,49 @@ export default function App() {
         </Card>
       )}
 
+      {answer && (
+        <Card title="Answer" lit className="mt-8">
+          <div className="space-y-4">
+            {answer.findings.map((f, i) => (
+              <div key={i}>
+                <div className="flex flex-wrap items-start gap-2">
+                  <p className="mr-auto text-[14px] font-medium leading-snug text-nc-hi">{f.claim}</p>
+                  <Badge value={f.severity} prefix="severity: " />
+                  <Badge value={f.evidence_status} prefix="evidence: " />
+                </div>
+                <ul className="mt-2 space-y-2">
+                  {[...f.supporting, ...f.contradicting].map((c, j) => (
+                    <li key={j} className="flex gap-3">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-nc-cyan" aria-hidden />
+                      <div>
+                        <div className="text-[12.5px] leading-snug text-nc-hi">“{c.quote}”</div>
+                        <div className="text-[11.5px] leading-snug text-nc-lo">{c.title} · {day(c.date)} · {where(c)}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[12px] leading-snug text-nc-mid"><span className="font-medium text-nc-hi">Next step:</span> {f.next_step}</p>
+              </div>
+            ))}
+            <p className="font-data text-[10.5px] text-nc-lo">
+              {answer.retrieved_chunk_ids.length} passages read · {answer.citations_emitted - answer.citations_rejected} of {answer.citations_emitted} quotes verified · {answer.model_version} · not saved
+            </p>
+          </div>
+        </Card>
+      )}
+
       {project && (
         <>
-          <nav className="mb-4 flex gap-1 border-b border-slate-200" aria-label="Screens">
-            {(["evidence", "register"] as const).map((v) => (
-              <button
-                key={v}
-                aria-current={view === v && !findingId ? "page" : undefined}
-                onClick={() => {
-                  setView(v);
-                  setFindingId(null);
-                }}
-                className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-                  view === v ? "border-emerald-800" : "border-transparent text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                {v === "evidence" ? "Evidence workspace" : "Risk register"}
-              </button>
-            ))}
-          </nav>
-
-          {/* Screens stay mounted (hidden) so the selected investigation survives a visit to a finding. */}
-          <div hidden={view !== "evidence" || !!findingId}>
-            <Evidence key={project.id} project={project} />
+          {/* Both panels stay mounted (hidden) so the selected review survives a visit to a finding. */}
+          <div hidden={!!findingId} className="mt-10 space-y-5">
+            <Findings key={`f-${project.id}`} project={project} model={model} onOpen={setFindingId} />
+            <Sources key={`s-${project.id}`} project={project} />
           </div>
-          <div hidden={view !== "register" || !!findingId}>
-            <Register key={project.id} project={project} onOpen={setFindingId} />
-          </div>
-          {findingId && <FindingDetail id={findingId} onOpen={setFindingId} onBack={() => setFindingId(null)} />}
+          {findingId && (
+            <div className="mt-10">
+              <FindingDetail id={findingId} onOpen={setFindingId} onBack={() => setFindingId(null)} />
+            </div>
+          )}
         </>
       )}
     </div>

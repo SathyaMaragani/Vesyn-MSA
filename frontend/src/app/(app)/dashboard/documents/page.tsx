@@ -1,6 +1,6 @@
-import DocumentsApp from "@/components/documents/DocumentsApp";
+import { redirect } from "next/navigation";
 
-// The lab's own documents, searched and reviewed by the evidence service (MongoDB Atlas).
+// The page moved when the tab was renamed; old links keep working.
 export default function Page() {
-  return <DocumentsApp />;
+  redirect("/dashboard/rag");
 }

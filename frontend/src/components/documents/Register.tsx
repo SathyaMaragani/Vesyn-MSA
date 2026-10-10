@@ -1,19 +1,9 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-import {
-  type Answer,
-  BASE,
-  day,
-  type Diff,
-  type Finding,
-  get,
-  type Investigation,
-  minute,
-  post,
-  type Project,
-  where,
-} from "./api";
+// FINDINGS: what a review of the documents concluded, grouped, with the brief and the comparison to the last review.
+import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, Play } from "lucide-react";
+import { BASE, type Diff, type Finding, get, type Investigation, minute, post, type Project } from "./api";
 import { Badge, button, buttonQuiet, Card, ErrorNote, input, label } from "./ui";
 
 const ORDER = {
@@ -26,26 +16,25 @@ type Panel = { kind: "brief"; text: string } | { kind: "diff"; diff: Diff } | nu
 
 function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => void }) {
   return (
-    <li className="border-t border-slate-100 py-2 first:border-t-0">
-      <div className="flex flex-wrap items-start gap-2">
-        <button className="mr-auto text-left font-medium underline-offset-2 hover:underline" onClick={() => onOpen(f.id)}>
-          {f.claim}
-        </button>
-        <span className="text-xs text-slate-500">{f.service}</span>
+    <li>
+      <button type="button" onClick={() => onOpen(f.id)} className="nc-focus group flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg px-2 py-2 text-left hover:bg-nc-cyan/[0.06]">
+        <span className="min-w-0 flex-1 basis-[340px] text-[12.5px] leading-snug text-nc-hi">{f.claim}</span>
+        <span className="font-data text-[10.5px] text-nc-lo">{f.service}</span>
         <Badge value={f.severity} prefix="severity: " />
         <Badge value={f.evidence_status} prefix="evidence: " />
-      </div>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-nc-lo transition-transform group-hover:translate-x-0.5 group-hover:text-nc-cyan" aria-hidden />
+      </button>
       {f.changes?.map((c) => (
-        <p key={c.field} className="text-xs text-slate-600">
+        <p key={c.field} className="px-2 font-data text-[10.5px] text-nc-mid">
           {label(c.field)}: {label(c.from)} → {label(c.to)}
         </p>
       ))}
-      {f.change_reason && <p className="mt-1 text-sm text-slate-600">Changed: {f.change_reason}</p>}
+      {f.change_reason && <p className="px-2 pb-1.5 text-[11.5px] leading-snug text-nc-lo">Changed: {f.change_reason}</p>}
     </li>
   );
 }
 
-export default function Register({ project, onOpen }: { project: Project; onOpen: (id: string) => void }) {
+export default function Findings({ project, model, onOpen }: { project: Project; model: string; onOpen: (id: string) => void }) {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [invId, setInvId] = useState("");
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -53,21 +42,8 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
   const [running, setRunning] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [error, setError] = useState("");
-  const [models, setModels] = useState<string[]>([]);
-  const [answer, setAnswer] = useState<Answer | null>(null);
-  const [asking, setAsking] = useState(false);
-  const [model, setModel] = useState("");
 
   const fail = (e: unknown) => setError((e as Error).message);
-
-  useEffect(() => {
-    get<{ default: string; models: string[] }>("/models")
-      .then((m) => {
-        setModels(m.models);
-        setModel(m.models.includes(m.default) ? m.default : (m.models[0] ?? ""));
-      })
-      .catch(fail);
-  }, []);
   const inv = investigations.find((i) => i.id === invId);
 
   const loadInvestigations = useCallback(
@@ -93,25 +69,12 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
     setError("");
     try {
       const created = await post<Investigation>(`/projects/${project.id}/investigations`, { model: model || null });
-      if (created.status === "failed") setError(`Investigation failed: ${created.error}`);
+      if (created.status === "failed") setError(`Review failed: ${created.error}`);
       await loadInvestigations(created.status === "complete" ? created.id : undefined);
     } catch (e) {
       fail(e);
     }
     setRunning(false);
-  }
-
-  async function ask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const question = String(new FormData(event.currentTarget).get("question"));
-    setAsking(true);
-    setError("");
-    try {
-      setAnswer(await post<Answer>(`/projects/${project.id}/ask`, { question, model: model || null }));
-    } catch (e) {
-      fail(e);
-    }
-    setAsking(false);
   }
 
   const showBrief = () =>
@@ -128,155 +91,97 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
     .filter((g) => g.items.length);
 
   return (
-    <div className="space-y-4">
-      <ErrorNote message={error} />
-
-      <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <button className={button} onClick={run} disabled={running}>
-            {running ? "Investigating…" : "Run investigation"}
-          </button>
-          <label className="text-sm">
-            Model{" "}
-            <select className={input} value={model} onChange={(e) => setModel(e.target.value)} disabled={running}>
-              {models.length === 0 && <option value="">default from .env</option>}
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {m.replace(":", " · ")}
-                  {m.startsWith("ollama:") ? " (local)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            Investigation{" "}
-            <select className={input} value={invId} onChange={(e) => setInvId(e.target.value)}>
-              {investigations.length === 0 && <option value="">none yet</option>}
+    <div className="space-y-5">
+      <Card
+        title={`Findings${findings.length ? ` (${findings.length})` : ""}`}
+        aside={
+          <>
+            <select aria-label="Review" className={input} value={invId} onChange={(e) => setInvId(e.target.value)}>
+              {investigations.length === 0 && <option value="">no review yet</option>}
               {investigations.map((i) => (
                 <option key={i.id} value={i.id}>
                   {minute(i.created_at)} ({i.status})
                 </option>
               ))}
             </select>
-          </label>
-          <button className={buttonQuiet} onClick={showBrief} disabled={inv?.status !== "complete"}>
-            Generate brief
-          </button>
-          <button className={buttonQuiet} onClick={showDiff} disabled={!inv?.previous_id || inv.status !== "complete"}>
-            Compare with previous investigation
-          </button>
-          <label className="ml-auto text-sm">
-            Group by{" "}
-            <select className={input} value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-              <option value="category">category</option>
-              <option value="severity">severity</option>
-              <option value="evidence_status">evidence status</option>
+            <select aria-label="Group findings by" className={input} value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+              <option value="category">by area</option>
+              <option value="severity">by severity</option>
+              <option value="evidence_status">by evidence</option>
             </select>
-          </label>
-        </div>
-        {running && (
-          <p className="mt-2 text-xs text-slate-500">
-            One model call per risk area. Hosted models take a minute or two (longer when a free tier rate-limits);
-            local models can take several minutes per area.
-          </p>
-        )}
+            <button type="button" className={button} onClick={run} disabled={running}>
+              <Play className="h-3.5 w-3.5" aria-hidden /> {running ? "Reviewing" : "Run review"}
+            </button>
+          </>
+        }
+      >
+        <ErrorNote message={error} />
+        {running && <p className="text-[11.5px] leading-snug text-nc-lo">One model call per review area. Hosted models take a minute or two, longer when a free tier rate-limits; local models can take several minutes per area.</p>}
         {inv && (
-          <p className="mt-2 text-xs text-slate-500">
-            {inv.source_snapshot.length} sources in snapshot · model {inv.model} · prompt {inv.prompt_version}
-            {inv.error && ` · ${inv.error}`}
-          </p>
-        )}
-      </Card>
-
-      <Card title="Ask the documents">
-        <form onSubmit={ask} className="flex gap-2">
-          <input
-            name="question"
-            required
-            minLength={3}
-            maxLength={500}
-            aria-label="Question for the documents"
-            placeholder="e.g. Can this route run at 10 kg scale?"
-            className={`${input} flex-1`}
-          />
-          <button className={button} disabled={asking}>
-            {asking ? "Reading the documents…" : "Ask"}
-          </button>
-        </form>
-        {answer && (
-          <div className="mt-3 space-y-3">
-            {answer.findings.map((f, i) => (
-              <div key={i} className="rounded border border-slate-200 p-3 text-sm">
-                <div className="flex flex-wrap items-start gap-2">
-                  <p className="mr-auto font-medium">{f.claim}</p>
-                  <Badge value={f.severity} prefix="severity: " />
-                  <Badge value={f.evidence_status} prefix="evidence: " />
-                </div>
-                {[...f.supporting, ...f.contradicting].map((c, j) => (
-                  <p key={j} className="mt-2 text-slate-600">
-                    “{c.quote}”{" "}
-                    <span className="text-xs text-slate-500">
-                      {c.title} · {day(c.date)} · {where(c)}
-                    </span>
-                  </p>
-                ))}
-                <p className="mt-2">
-                  <span className="font-medium">Next step:</span> {f.next_step}
-                </p>
-              </div>
-            ))}
-            <p className="text-xs text-slate-500">
-              {answer.retrieved_chunk_ids.length} passages read ·{" "}
-              {answer.citations_emitted - answer.citations_rejected} of {answer.citations_emitted} quotes verified ·{" "}
-              {answer.model_version}. The answer is not saved.
-            </p>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="font-data text-[10.5px] text-nc-lo">
+              {inv.source_snapshot.length} sources · {inv.model} · prompt {inv.prompt_version}
+              {inv.error && ` · ${inv.error}`}
+            </span>
+            <span className="ml-auto flex gap-2">
+              <button type="button" className={buttonQuiet} onClick={showBrief} disabled={inv.status !== "complete"}>
+                Generate brief
+              </button>
+              <button type="button" className={buttonQuiet} onClick={showDiff} disabled={!inv.previous_id || inv.status !== "complete"}>
+                Compare with previous review
+              </button>
+            </span>
           </div>
         )}
+        {groups.map((g) => (
+          <div key={g.value} className="mt-3">
+            <div className="nc-label border-t border-nc-line pt-2">
+              {label(g.value)} ({g.items.length})
+            </div>
+            <ul className="-mx-1 mt-1 space-y-0.5">
+              {g.items.map((f) => (
+                <FindingRow key={f.id} f={f} onOpen={onOpen} />
+              ))}
+            </ul>
+          </div>
+        ))}
+        {invId && findings.length === 0 && <p className="text-[12px] text-nc-lo">This review has no findings.</p>}
+        {!invId && <p className="text-[12px] text-nc-lo">Nothing reviewed yet. Upload documents below, then run a review.</p>}
+        <p className="mt-3 text-[11px] leading-snug text-nc-lo">
+          Severity is the potential impact if the risk is real. Evidence says what the sources establish; “not established” means not established from the available documents.
+        </p>
       </Card>
 
-      {panel?.kind === "brief" && (
-        <Card title="Brief (Markdown)">
-          <a className={`${buttonQuiet} inline-block`} href={`${BASE}/investigations/${invId}/brief`} download={`brief-${invId}.md`}>
-            Download .md
-          </a>
-          <pre className="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs">{panel.text}</pre>
-        </Card>
-      )}
-
       {panel?.kind === "diff" && (
-        <Card title="Changes since the previous investigation">
+        <Card title="Changes since the previous review" lit>
           {(["resolved", "updated", "added", "removed"] as const).map((bucket) => (
-            <div key={bucket} className="mb-3">
-              <h3 className="text-sm font-semibold capitalize">
+            <div key={bucket} className="mt-2">
+              <div className="nc-label border-t border-nc-line pt-2">
                 {bucket} ({panel.diff[bucket].length})
-              </h3>
-              <ul>
+              </div>
+              <ul className="-mx-1 mt-1 space-y-0.5">
                 {panel.diff[bucket].map((f) => (
                   <FindingRow key={f.id} f={f} onOpen={onOpen} />
                 ))}
               </ul>
             </div>
           ))}
-          <p className="text-xs text-slate-500">{panel.diff.unchanged.length} findings unchanged.</p>
+          <p className="mt-3 font-data text-[10.5px] text-nc-lo">{panel.diff.unchanged.length} findings unchanged</p>
         </Card>
       )}
 
-      {groups.map((g) => (
-        <Card key={g.value} title={`${label(g.value)} (${g.items.length})`}>
-          <ul>
-            {g.items.map((f) => (
-              <FindingRow key={f.id} f={f} onOpen={onOpen} />
-            ))}
-          </ul>
+      {panel?.kind === "brief" && (
+        <Card
+          title="Brief (Markdown)"
+          aside={
+            <a className={buttonQuiet} href={`${BASE}/investigations/${invId}/brief`} download={`brief-${invId}.md`}>
+              Download .md
+            </a>
+          }
+        >
+          <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg bg-nc-panel-2 p-3 font-data text-[11px] leading-relaxed text-nc-mid">{panel.text}</pre>
         </Card>
-      ))}
-      {invId && findings.length === 0 && <p className="text-sm text-slate-500">This investigation has no findings.</p>}
-      {!invId && <p className="text-sm text-slate-500">Upload evidence, then run an investigation.</p>}
-
-      <p className="text-xs text-slate-500">
-        Severity is the potential impact if the risk is real. Evidence status says what the sources establish; “not
-        established” means not established from the available evidence.
-      </p>
+      )}
     </div>
   );
 }
