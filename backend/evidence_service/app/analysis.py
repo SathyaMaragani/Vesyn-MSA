@@ -23,7 +23,7 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
 # Thinking roughly triples local latency (192s vs 60s per question for qwen3:14b on an 8 GB GPU); off by default.
 OLLAMA_THINK = os.getenv("OLLAMA_THINK", "").lower() in ("1", "true", "yes")
-PROMPT_VERSION = "chem-v1"
+PROMPT_VERSION = "chem-v2"
 MAX_EVIDENCE = 24
 ID_PATTERN = re.compile(r"\b[A-Z]{2,5}-\d{2,}(?:-\d+)?\b")  # INC-2025-014, TD-112
 
@@ -59,13 +59,13 @@ Rules:
 5. claim states the risk in one sentence: what can go wrong, or what is unproven. Keep the claim worded as the risk even after it is fixed (for example "Coupling yield fell at 120 g in batch GEF-0142"); a fix is expressed through evidence_status, not by rewording the claim. If the question asks for a plain fact rather than a risk, the claim is the answer.
 6. evidence_status describes the current state of that risk, not whether your sentence is true. Take the first that fits, in this order:
    - not_established: the evidence does not show whether the risk exists.
-   - resolved: the problem occurred, and LATER test or verification evidence shows the fix working.
+   - resolved: the problem occurred, and LATER test or verification evidence shows the fix working (for example a repeat batch that meets its yield and purity specification after a process change). This holds even when an older document still makes the outdated claim; say that under limitation.
    - conflicting: sources disagree about whether the risk exists (for example a route proposal claims a yield that a batch record contradicts) and no later test settles it. A document that only says "fixed" does not settle it.
    - fix_unverified: sources agree the problem occurred, a fix is reported, and no later test shows it working.
    - supported: the evidence shows the risk exists (or states the fact asked for), no fix is reported and no source disputes it.
 7. severity is the potential impact if the risk is real (high, medium or low) with a written rationale. It is independent of evidence strength and does not drop when a risk is resolved. Block order reflects retrieval rank, not confidence. Never state a confidence percentage.
 8. supporting = evidence that the risk exists or existed (failed batches, open known issues, single suppliers, statements that something is untested). contradicting = evidence against it (proposal claims that it works, passing repeat batches, verified fixes).
-9. key is a short stable kebab-case identifier of the underlying risk, for example "gefitinib-coupling-scale-up". If a previous finding describes the same risk, reuse its key exactly. change_reason says what changed since the previous finding and which new evidence caused it; use an empty string for new or unchanged findings.
+9. key is a short stable kebab-case identifier of the underlying risk, for example "gefitinib-coupling-scale-up". If a previous finding describes the same risk, reuse its key exactly, character for character. change_reason says what changed since the previous finding and which new evidence caused it; use an empty string for new or unchanged findings.
 10. Answer the stated question only. Report distinct risks as separate findings, one per risk rather than one per document, at most 6. Do not create findings for things the evidence shows are in order (for example a material with two qualified suppliers) unless the question asks for that fact directly.
 11. limitation and next_step are never empty. limitation says what the available evidence does not cover (for example a batch at a larger scale that was not provided). next_step names the specific evidence or test to obtain next."""
 
@@ -307,6 +307,37 @@ def validate(findings: list[FindingOut], evidence: dict[str, dict]) -> tuple[lis
     return out, total, rejected
 
 
+def reuse_keys(findings: list[dict], previous: list[dict]) -> None:
+    """Keep a finding's identity across runs when the model renamed it.
+
+    Models do not reliably reuse the previous key, so a renamed finding takes the key of the
+    previous finding it most resembles: shared cited documents plus shared claim words.
+    ponytail: greedy one-to-one match on a fixed threshold; compare claim embeddings if this mislabels.
+    """
+    def cited(f):
+        return {c["source_id"].rsplit("-v", 1)[0] for side in ("supporting", "contradicting") for c in f[side]}
+
+    def words(f):
+        return {w for w in re.findall(r"[a-z0-9]+", f["claim"].lower()) if len(w) > 3}
+
+    def overlap(a, b):
+        return len(a & b) / len(a | b) if a | b else 0.0
+
+    old = {p["key"]: p for p in previous}
+    taken = {f["key"] for f in findings if f["key"] in old}
+    pairs = sorted(
+        ((overlap(cited(f), cited(p)) + overlap(words(f), words(p)), i, key)
+         for i, f in enumerate(findings) if f["key"] not in old for key, p in old.items()),
+        reverse=True,
+    )
+    renamed = set()
+    for score, i, key in pairs:
+        if score >= 0.5 and key not in taken and i not in renamed:
+            findings[i]["key"] = key
+            taken.add(key)
+            renamed.add(i)
+
+
 def investigate(project: dict, category: str, question: str, queries: list[str],
                 previous: list[dict] = (), model_spec: str | None = None) -> dict:
     """Answer one question from the project's evidence. Pure pipeline, no writes."""
@@ -361,6 +392,7 @@ def run_investigation(project_id: str, model_spec: str | None = None) -> dict:
                 f for f in prev_findings if f["category"] == category and f["question"] == question
             ], model_spec)
             model_version = res["model_version"]
+            reuse_keys(res["findings"], [f for f in prev_findings if f["category"] == category])
             docs = []
             for f in res.pop("findings"):
                 key = base = slug(f["key"]) or "finding"

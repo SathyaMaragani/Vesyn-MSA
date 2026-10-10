@@ -26,27 +26,35 @@ def diversify(chunks: list[dict], per_source: int) -> list[dict]:
     return out
 
 
-def _scope(project_id: str, filters: dict | None) -> dict:
-    return {"project_id": project_id, "latest": True, **{k: v for k, v in (filters or {}).items() if v}}
+def _scope(project_id: str, filters: dict | None) -> tuple[dict, dict]:
+    """Split filters into exact matches and an optional date range (date_from / date_to)."""
+    f = {k: v for k, v in (filters or {}).items() if v}
+    span = {op: f.pop(key) for key, op in (("date_from", "gte"), ("date_to", "lte")) if key in f}
+    return {"project_id": project_id, "latest": True, **f}, span
 
 
 def vector_search(project_id: str, vector: list[float], limit: int, filters: dict | None = None) -> list[dict]:
+    exact, span = _scope(project_id, filters)
+    where = {**exact, **({"date": {f"${op}": v for op, v in span.items()}} if span else {})}
     return list(db().chunks.aggregate([
         {"$vectorSearch": {
             "index": VECTOR_INDEX, "path": "embedding", "queryVector": vector,
-            "numCandidates": max(100, limit * 10), "limit": limit, "filter": _scope(project_id, filters),
+            "numCandidates": max(100, limit * 10), "limit": limit, "filter": where,
         }},
         {"$project": {"embedding": 0}},
     ]))
 
 
 def text_search(project_id: str, query: str, limit: int, filters: dict | None = None) -> list[dict]:
+    exact, span = _scope(project_id, filters)
+    where = [{"equals": {"path": p, "value": v}} for p, v in exact.items()]
+    where += [{"range": {"path": "date", **span}}] if span else []
     return list(db().chunks.aggregate([
         {"$search": {
             "index": TEXT_INDEX,
             "compound": {
                 "must": [{"text": {"query": query, "path": ["text", "title", "section"]}}],
-                "filter": [{"equals": {"path": p, "value": v}} for p, v in _scope(project_id, filters).items()],
+                "filter": where,
             },
         }},
         {"$limit": limit},
@@ -86,7 +94,7 @@ def search_many(project_id: str, queries: list[str], limit: int) -> list[list[di
 def wait_indexed(project_id: str, timeout: float = 30) -> bool:
     """Search indexes update asynchronously; wait until they reflect the project's latest chunks."""
     d = db()
-    scope = _scope(project_id, None)
+    scope, _ = _scope(project_id, None)
     expected = d.chunks.count_documents(scope)
     probe = [1.0] + [0.0] * (EMBED_DIMS - 1)
     deadline = time.monotonic() + timeout

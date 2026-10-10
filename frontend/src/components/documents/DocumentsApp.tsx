@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { get, post, type Project } from "./api";
+import { accessKey, get, post, type Project, setAccessKey } from "./api";
 import Evidence from "./Evidence";
 import FindingDetail from "./FindingDetail";
 import Register from "./Register";
@@ -16,6 +16,9 @@ export default function App() {
   const [findingId, setFindingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [key, setKey] = useState("");
+
+  useEffect(() => setKey(accessKey()), []);
 
   useEffect(() => {
     get<Project[]>("/projects")
@@ -71,6 +74,20 @@ export default function App() {
               </option>
             ))}
           </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          Access key{" "}
+          <input
+            type="password"
+            autoComplete="off"
+            className={`${input} w-44`}
+            value={key}
+            placeholder="for uploads and reviews"
+            onChange={(e) => {
+              setKey(e.target.value);
+              setAccessKey(e.target.value.trim());
+            }}
+          />
         </label>
         <button className={buttonQuiet} onClick={() => setCreating(!creating)}>
           New project

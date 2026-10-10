@@ -10,6 +10,9 @@ export default function Evidence({ project }: { project: Project }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [service, setService] = useState("");
   const [type, setType] = useState("");
+  const [owner, setOwner] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [hits, setHits] = useState<Passage[] | null>(null);
@@ -40,7 +43,8 @@ export default function Evidence({ project }: { project: Project }) {
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const query = new URLSearchParams({ q: String(new FormData(event.currentTarget).get("q")), service, type });
+    const q = String(new FormData(event.currentTarget).get("q"));
+    const query = new URLSearchParams({ q, service, type, owner, date_from: from, date_to: to });
     try {
       setHits(await get<Passage[]>(`/projects/${project.id}/search?${query}`));
       setError("");
@@ -50,7 +54,17 @@ export default function Evidence({ project }: { project: Project }) {
   }
 
   const types = [...new Set(sources.map((s) => s.type))].sort();
-  const shown = sources.filter((s) => (!service || s.service === service) && (!type || s.type === type));
+  const owners = [...new Set(sources.map((s) => s.owner ?? "").filter(Boolean))].sort();
+  const shown = sources.filter((s) => {
+    const date = s.date?.slice(0, 10) ?? "";
+    return (
+      (!service || s.service === service) &&
+      (!type || s.type === type) &&
+      (!owner || s.owner === owner) &&
+      (!from || date >= from) &&
+      (!to || (date !== "" && date <= to))
+    );
+  });
 
   return (
     <div className="space-y-4">
@@ -128,6 +142,23 @@ export default function Evidence({ project }: { project: Project }) {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="text-sm">
+            Owner{" "}
+            <select className={input} value={owner} onChange={(e) => setOwner(e.target.value)}>
+              <option value="">all</option>
+              {owners.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            From{" "}
+            <input type="date" className={input} value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label className="text-sm">
+            To{" "}
+            <input type="date" className={input} value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
           <button className={buttonQuiet} onClick={load}>
             Refresh
@@ -208,7 +239,7 @@ export default function Evidence({ project }: { project: Project }) {
           </ol>
         )}
         <p className="mt-2 text-xs text-slate-500">
-          Searches the latest version of each source, within the service and source-type filters above. Order is
+          Searches the latest version of each source, within the compound, type, owner and date filters above. Order is
           retrieval rank, not confidence.
         </p>
       </Card>

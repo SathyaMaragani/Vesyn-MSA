@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from . import report
 from .analysis import available_models, default_model, investigate, run_investigation
 from .db import db, ensure_indexes, fs
-from .ingest import ingest_file, slug
+from .ingest import ingest_file, parse_date, slug
 from .retrieval import hybrid_search
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -98,9 +98,12 @@ def download_source(source_id: str):
 
 
 @app.get("/api/projects/{project_id}/search")
-def search(project_id: str, q: str, service: str = "", type: str = ""):
+def search(project_id: str, q: str, service: str = "", type: str = "", owner: str = "",
+           date_from: str = "", date_to: str = ""):
     """Retrieval check: passages with their source locations."""
-    return [out(c) for c in hybrid_search(project_id, q, filters={"service": service, "source_type": type})]
+    filters = {"service": service, "source_type": type, "owner": owner,
+               "date_from": parse_date(date_from), "date_to": parse_date(date_to)}
+    return [out(c) for c in hybrid_search(project_id, q, filters=filters)]
 
 
 @app.get("/api/models")

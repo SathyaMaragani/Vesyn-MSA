@@ -13,6 +13,8 @@ every question is policy-checked, audited and on the event bus like any other.
 from __future__ import annotations
 
 import os
+from functools import lru_cache
+from pathlib import Path
 
 import httpx
 
@@ -27,6 +29,21 @@ class EvidenceUnavailable(RuntimeError):
 
 def url() -> str:
     return os.environ.get("VESYN_EVIDENCE_URL", "http://127.0.0.1:8437").rstrip("/")
+
+
+@lru_cache
+def access_key() -> str:
+    """The key a caller must send to upload, review or ask. Empty means no key is required.
+
+    Read from VESYN_EVIDENCE_KEY, or from the repo's .env, which this API does not load itself.
+    """
+    key = os.environ.get("VESYN_EVIDENCE_KEY", "")
+    env = Path(__file__).resolve().parents[2] / ".env"
+    if not key and env.exists():
+        for line in env.read_text("utf-8").splitlines():
+            if line.startswith("VESYN_EVIDENCE_KEY="):
+                key = line.split("=", 1)[1].strip()
+    return key
 
 
 def _request(method: str, path: str, timeout: float = 30.0, **kwargs):

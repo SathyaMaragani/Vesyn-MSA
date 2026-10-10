@@ -1,7 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { BASE, type Diff, type Finding, get, type Investigation, minute, post, type Project } from "./api";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type Answer,
+  BASE,
+  day,
+  type Diff,
+  type Finding,
+  get,
+  type Investigation,
+  minute,
+  post,
+  type Project,
+  where,
+} from "./api";
 import { Badge, button, buttonQuiet, Card, ErrorNote, input, label } from "./ui";
 
 const ORDER = {
@@ -42,6 +54,8 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
   const [panel, setPanel] = useState<Panel>(null);
   const [error, setError] = useState("");
   const [models, setModels] = useState<string[]>([]);
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [asking, setAsking] = useState(false);
   const [model, setModel] = useState("");
 
   const fail = (e: unknown) => setError((e as Error).message);
@@ -85,6 +99,19 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
       fail(e);
     }
     setRunning(false);
+  }
+
+  async function ask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const question = String(new FormData(event.currentTarget).get("question"));
+    setAsking(true);
+    setError("");
+    try {
+      setAnswer(await post<Answer>(`/projects/${project.id}/ask`, { question, model: model || null }));
+    } catch (e) {
+      fail(e);
+    }
+    setAsking(false);
   }
 
   const showBrief = () =>
@@ -158,6 +185,52 @@ export default function Register({ project, onOpen }: { project: Project; onOpen
             {inv.source_snapshot.length} sources in snapshot · model {inv.model} · prompt {inv.prompt_version}
             {inv.error && ` · ${inv.error}`}
           </p>
+        )}
+      </Card>
+
+      <Card title="Ask the documents">
+        <form onSubmit={ask} className="flex gap-2">
+          <input
+            name="question"
+            required
+            minLength={3}
+            maxLength={500}
+            aria-label="Question for the documents"
+            placeholder="e.g. Can this route run at 10 kg scale?"
+            className={`${input} flex-1`}
+          />
+          <button className={button} disabled={asking}>
+            {asking ? "Reading the documents…" : "Ask"}
+          </button>
+        </form>
+        {answer && (
+          <div className="mt-3 space-y-3">
+            {answer.findings.map((f, i) => (
+              <div key={i} className="rounded border border-slate-200 p-3 text-sm">
+                <div className="flex flex-wrap items-start gap-2">
+                  <p className="mr-auto font-medium">{f.claim}</p>
+                  <Badge value={f.severity} prefix="severity: " />
+                  <Badge value={f.evidence_status} prefix="evidence: " />
+                </div>
+                {[...f.supporting, ...f.contradicting].map((c, j) => (
+                  <p key={j} className="mt-2 text-slate-600">
+                    “{c.quote}”{" "}
+                    <span className="text-xs text-slate-500">
+                      {c.title} · {day(c.date)} · {where(c)}
+                    </span>
+                  </p>
+                ))}
+                <p className="mt-2">
+                  <span className="font-medium">Next step:</span> {f.next_step}
+                </p>
+              </div>
+            ))}
+            <p className="text-xs text-slate-500">
+              {answer.retrieved_chunk_ids.length} passages read ·{" "}
+              {answer.citations_emitted - answer.citations_rejected} of {answer.citations_emitted} quotes verified ·{" "}
+              {answer.model_version}. The answer is not saved.
+            </p>
+          </div>
         )}
       </Card>
 

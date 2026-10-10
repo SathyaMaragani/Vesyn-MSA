@@ -5,6 +5,8 @@ lands in the audit log like an agent's call would.
 """
 from __future__ import annotations
 
+import hmac
+
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -16,6 +18,14 @@ router = APIRouter(tags=["evidence"])
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+
+
+def _require_key(request: Request) -> None:
+    """Uploads, reviews and questions change data or spend model quota, so they need the access key."""
+    key = evidence.access_key()
+    sent = request.headers.get("x-vesyn-key", "")
+    if key and not hmac.compare_digest(sent.encode(), key.encode()):
+        raise HTTPException(status_code=401, detail="Access key missing or wrong. Enter it on the Documents page.")
 
 
 async def _call(tool: str, args: dict) -> dict:
@@ -31,6 +41,8 @@ async def _call(tool: str, args: dict) -> dict:
 async def app_data(path: str, request: Request) -> Response:
     """Pass-through for the Documents screens: the web app reaches the evidence service through
     this API, so only one address is public. GET and POST only; uploads are forwarded as sent."""
+    if request.method == "POST":
+        _require_key(request)
     base = evidence.url()
     if base == "none":
         raise HTTPException(status_code=503, detail="document evidence disabled")
@@ -51,5 +63,6 @@ async def search(q: str, compound: str = "", type: str = "") -> dict:
 
 
 @router.post("/api/evidence/ask")
-async def ask(body: AskRequest) -> dict:
+async def ask(body: AskRequest, request: Request) -> dict:
+    _require_key(request)
     return await _call("evidence.ask", {"question": body.question})

@@ -84,7 +84,7 @@ app.add_middleware(
     allow_origin_regex=os.environ.get("VESYN_CORS_ORIGIN_REGEX") or None,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Vesyn-Key"],
 )
 
 app.include_router(routes_retrosynthesis.router)

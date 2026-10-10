@@ -75,6 +75,18 @@ export type Investigation = {
   source_snapshot: unknown[];
 };
 
+/** One question answered from the documents. Nothing is stored. */
+export type Answer = {
+  findings: Pick<
+    Finding,
+    "claim" | "service" | "severity" | "evidence_status" | "supporting" | "contradicting" | "limitation" | "next_step"
+  >[];
+  retrieved_chunk_ids: string[];
+  citations_emitted: number;
+  citations_rejected: number;
+  model_version: string;
+};
+
 export type Diff = { against: string } & Record<"added" | "updated" | "resolved" | "unchanged" | "removed", Finding[]>;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -88,13 +100,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const get = <T>(path: string) => request<T>(path);
 
-export const post = <T>(path: string, body?: unknown) =>
-  request<T>(path, {
+const KEY = "vesyn-evidence-key";
+
+/** The access key is kept for this browser tab only. Uploads, reviews and questions send it. */
+export const accessKey = (): string => {
+  try {
+    return window.sessionStorage.getItem(KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+export const setAccessKey = (value: string): void => {
+  try {
+    if (value) window.sessionStorage.setItem(KEY, value);
+    else window.sessionStorage.removeItem(KEY);
+  } catch {
+    // storage unavailable: the key is simply not remembered
+  }
+};
+
+export const post = <T>(path: string, body?: unknown) => {
+  const key = accessKey();
+  const auth: Record<string, string> = key ? { "X-Vesyn-Key": key } : {};
+  return request<T>(path, {
     method: "POST",
     ...(body instanceof FormData
-      ? { body }
-      : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) }),
+      ? { body, headers: auth }
+      : { headers: { "Content-Type": "application/json", ...auth }, body: JSON.stringify(body ?? {}) }),
   });
+};
 
 export const day = (iso?: string | null) => iso?.slice(0, 10) ?? "undated";
 export const minute = (iso: string) => `${iso.slice(0, 16).replace("T", " ")} UTC`;
