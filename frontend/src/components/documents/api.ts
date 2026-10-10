@@ -24,6 +24,8 @@ export type Source = {
   error: string | null;
   chunk_count: number;
   checksum: string;
+  /** The reaction step this document is filed under (Vesyn's template key), if any. */
+  reaction_template?: string | null;
 };
 
 /** A stored chunk with its location in the source. */

@@ -95,6 +95,14 @@ def ask(question: str) -> dict:
     }
 
 
+def lessons() -> dict[str, list[dict]]:
+    """template_hash -> what the latest review of the lab's documents says about that transformation."""
+    out: dict[str, list[dict]] = {}
+    for item in _request("GET", "lessons")["lessons"]:
+        out.setdefault(item["template_hash"], []).append(item)
+    return out
+
+
 # --- registry ------------------------------------------------------------
 
 def _needs_query(args: dict) -> None:
@@ -114,6 +122,15 @@ register(Tool(
     fn=lambda a: {"passages": search(a["query"], a.get("compound") or "", a.get("type") or "")},
     agents=frozenset({"validator", "critic", "user"}), station="library", check=_needs_query,
     summarize=lambda o: {"passages": len(o["passages"])},
+))
+register(Tool(
+    name="evidence.lessons", version="mongodb-atlas-rag",
+    description="What the latest review of the lab's documents says about each reaction step: "
+                "unresolved problems and verified fixes.",
+    fn=lambda a: {"lessons": lessons()},
+    agents=frozenset({"critic", "user"}), station="library",
+    summarize=lambda o: {"transformations": len(o["lessons"]),
+                         "unresolved": sum(items[0]["open"] for items in o["lessons"].values())},
 ))
 register(Tool(
     name="evidence.ask", version="mongodb-atlas-rag",

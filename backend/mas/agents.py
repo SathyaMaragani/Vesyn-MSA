@@ -14,7 +14,7 @@ import json
 from collections import Counter
 from contextlib import asynccontextmanager
 
-from backend.mas import events, gateway, intent, llm, memory, store
+from backend.mas import events, evidence, gateway, intent, llm, memory, store
 from backend.mas.tools import iter_steps, leaves
 from backend.retrosynthesis.route_assessment import aggregate_route_assessment
 from backend.retrosynthesis.service import MAX_ITERATION_LIMIT, _enrich_with_assessment
@@ -212,6 +212,26 @@ async def retain(me: Worker, final: dict, request: str) -> None:
                      kinds=dict(Counter(i["metadata"]["kind"] for i in items)))
 
 
+async def document_lessons(me: Worker) -> dict[str, list[dict]]:
+    """What the lab's own documents say about each transformation, or {}. Missing evidence never fails a run."""
+    if evidence.url() == "none":
+        return {}
+    try:
+        out = await me.tool("evidence.lessons", {},
+                            "Check the lab's own documents for problems with these transformations")
+    except Exception:
+        return {}
+    return out["lessons"]
+
+
+def documents_used(ranked: list[dict]) -> dict:
+    """Where a finding from the lab's documents marked a step of a ranked route."""
+    return {"applied": [
+        {"route_id": r["route_id"], "step": i["step"], "issue": i["issue"]}
+        for r in ranked for i in r["critique"]["issues"] if i["source"] == "documents"
+    ]}
+
+
 def memory_used(state: dict, ranked: list[dict]) -> dict:
     """What memory contributed to this run: how much was recalled, where it changed a ranking."""
     return {
@@ -277,8 +297,10 @@ def judge(routes: list[dict], search: dict) -> dict:
     }
 
 
-def critique(route: dict, lessons: dict[str, list[dict]] | None = None) -> dict:
-    """Deterministic critique of one validated route, plus recalled lessons (memory.lessons)."""
+def critique(route: dict, lessons: dict[str, list[dict]] | None = None,
+             documents: dict[str, list[dict]] | None = None) -> dict:
+    """Deterministic critique of one validated route, plus recalled lessons (memory.lessons) and
+    what the lab's own documents say about each transformation (evidence.lessons)."""
     issues, strengths = [], []
     forward_missing = False
     structural = []
@@ -331,6 +353,20 @@ def critique(route: dict, lessons: dict[str, list[dict]] | None = None) -> dict:
                                     f"investigation(s){' (simulated demo record)' if simulated else ''}: "
                                     f"{past[0]['text']}"})
 
+        found = (documents or {}).get(rxn.get("template_hash"))
+        if found:
+            doc = found[0]
+            cite = (f"\u201c{doc['quote']}\u201d ({doc['source_title']}, "
+                    f"{str(doc.get('source_date') or '')[:10] or 'undated'})")
+            if doc["open"]:
+                issues.append({**at, "severity": "high", "source": "documents",
+                               "issue": "The lab's own documents report an unresolved problem with this "
+                                        f"transformation ({doc['evidence_status'].replace('_', ' ')}): "
+                                        f"{doc['claim']} {cite}"})
+            elif doc["evidence_status"] == "resolved":
+                strengths.append(f"Step {i}: a problem the lab's documents record for this transformation "
+                                 f"was fixed and verified. {cite}")
+
     n = route["number_of_reactions"]
     if n >= 6:
         issues.append({"step": None, "severity": "medium", "source": "route",
@@ -365,6 +401,9 @@ HIGH_ISSUE_PENALTY = 0.05
 # ponytail: flat, on top of HIGH_ISSUE_PENALTY, per step matching a recalled flag. It ignores
 # how many investigations agreed and how old they are; weigh by both if lessons start to conflict.
 MEMORY_PENALTY = 0.10
+# The same weight for an unresolved problem in the lab's own documents: it is a measurement, where a
+# recalled flag may be a model's disagreement, but one flat number keeps the two comparable.
+DOCUMENT_PENALTY = 0.10
 
 
 def score(route: dict, crit: dict) -> tuple[float, dict]:
@@ -384,6 +423,7 @@ def score(route: dict, crit: dict) -> tuple[float, dict]:
     total = sum(WEIGHTS[k] * v for k, v in parts.items())
     total -= HIGH_ISSUE_PENALTY * crit["counts"].get("high", 0)
     total -= MEMORY_PENALTY * sum(i["source"] == "memory" for i in crit["issues"])
+    total -= DOCUMENT_PENALTY * sum(i["source"] == "documents" for i in crit["issues"])
     return round(max(total, 0.0), 4), {k: round(v, 3) for k, v in parts.items()}
 
 
@@ -599,6 +639,7 @@ REPORT_SYSTEM = (
     "chemist. Use only the facts given. State the recommendation (or that there is none), "
     "the evidence behind it, and the main risks, in one paragraph of at most 120 words. "
     "If lessons recalled from earlier investigations changed the ranking, say which and why; "
+    "if a problem reported in the lab's own documents changed it, name the document; "
     "a lesson marked (simulated demo record) is invented history - call it simulated. "
     "No markdown, no invented numbers."
 )
@@ -620,7 +661,8 @@ async def critic(state: dict) -> dict:
     run_id, routes, verdict = state["run_id"], state["routes"], state["verdict"]
     async with working("critic", run_id, state["tasks"]["critique"], "CRITICIZING") as me:
         lessons = memory.lessons(state.get("memories") or [])
-        critiques = [critique(r, lessons) for r in routes]
+        documents = await document_lessons(me) if routes else {}
+        critiques = [critique(r, lessons, documents) for r in routes]
         for c in critiques:
             await me.publish("CRITIQUE_CREATED", route_id=c["route_id"], counts=c["counts"],
                              headline=c["headline"], strengths=c["strengths"])
@@ -686,6 +728,7 @@ async def _answer(state: dict) -> dict:
             "ranked_routes": [],
             "limitations": ANSWER_LIMITATIONS,
             "memory": memory_used(state, []),
+            "documents": documents_used([]),
             "audit": f"/api/audit?run_id={run_id}",
         }
         await retain(me, final, state["query"])
@@ -738,6 +781,7 @@ async def evaluator(state: dict) -> dict:
             "critic_notes": (state.get("critic_notes") or {}).get("text"),
             "top_routes": [_route_brief(r, r["critique"], score=r["score"]) for r in ranked[:3]],
             "lessons_from_earlier_investigations": used["applied"],
+            "problems_reported_in_the_labs_own_documents": documents_used(ranked)["applied"],
         }, indent=1)
         written = await narrate(me, REPORT_SYSTEM, facts, "Write the chemist-facing summary")
         report = (written["text"] if written else (
@@ -761,6 +805,7 @@ async def evaluator(state: dict) -> dict:
             "ranked_routes": ranked,
             "limitations": LIMITATIONS,
             "memory": used,
+            "documents": documents_used(ranked),
             "audit": f"/api/audit?run_id={run_id}",
         }
         await retain(me, final, state["query"])

@@ -120,12 +120,16 @@ export default function Sources({ project }: { project: Project }) {
                 Owner
                 <input name="owner" placeholder="from file" className={`${input} w-36`} />
               </label>
+              <label className={field}>
+                Reaction step key
+                <input name="reaction_template" placeholder="from file" className={`${input} w-44`} />
+              </label>
               <button className={button} disabled={busy}>
                 {busy ? "Indexing" : "Upload"}
               </button>
             </div>
             <p className="mt-2 text-[11px] leading-snug text-nc-lo">
-              Markdown and TXT files may start with a front-matter block (title, type, service, date, owner); fields set here override it. A file with the same name becomes a new version, and earlier versions are kept.
+              Markdown and TXT files may start with a front-matter block (title, type, service, date, owner); fields set here override it. A file with the same name becomes a new version, and earlier versions are kept. A document filed under a reaction step key lets the critic agent apply its findings to routes that use that step.
             </p>
           </form>
         )}
@@ -190,6 +194,11 @@ export default function Sources({ project }: { project: Project }) {
                         {s.title}
                       </a>
                       {s.error && <div className="font-data text-[10.5px] text-nc-bad">{s.error}</div>}
+                      {s.reaction_template && (
+                        <div className="font-data text-[10.5px] text-nc-cyan" title={`Filed under reaction step ${s.reaction_template}: the critic agent reads findings that cite this document`}>
+                          reaction step {s.reaction_template.slice(0, 10)}…
+                        </div>
+                      )}
                     </td>
                     <td className="whitespace-nowrap py-2 pr-3 font-data text-[11px]">
                       v{s.version}

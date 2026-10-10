@@ -12,6 +12,7 @@ import time
 
 os.environ["VESYN_LLM"] = "none"  # deterministic prose; set before the app imports
 os.environ["VESYN_HINDSIGHT_URL"] = "none"  # runs here must not read or write the research memory
+os.environ["VESYN_EVIDENCE_URL"] = "none"  # nor consult the document evidence service
 
 import pytest
 from fastapi.testclient import TestClient
@@ -120,6 +121,35 @@ def test_recalled_flag_ranks_down_a_route_the_tools_pass():
     c = agents.critique(remembered, lessons)
     assert [i["source"] for i in c["issues"]] == ["memory"] and "no conversion" in c["issues"][0]["issue"]
     assert agents.score(fresh, agents.critique(fresh, lessons))[0] > agents.score(remembered, c)[0]
+
+
+def _documented(status, severity="high"):
+    return {"t1": [{"template_hash": "t1", "claim": "Coupling yield fell at 120 g.", "severity": severity,
+                    "evidence_status": status, "open": status != "resolved" and severity != "low",
+                    "quote": "Isolated yield fell to 31%.", "source_title": "Batch Record GEF-0142",
+                    "source_date": "2026-03-03T00:00:00"}]}
+
+
+def test_a_problem_in_the_labs_documents_ranks_a_route_down_until_it_is_verified_fixed():
+    filed, fresh = _hashed(_route(0), "t1"), _hashed(_route(1), "t2")
+
+    unresolved = agents.critique(filed, documents=_documented("fix_unverified"))
+    assert [i["source"] for i in unresolved["issues"]] == ["documents"]
+    issue = unresolved["issues"][0]["issue"]
+    assert "fix unverified" in issue and "Isolated yield fell to 31%." in issue and "Batch Record GEF-0142, 2026-03-03" in issue
+    assert agents.score(fresh, agents.critique(fresh, documents=_documented("fix_unverified")))[0] > agents.score(filed, unresolved)[0]
+    assert agents.documents_used([{**filed, "critique": unresolved}])["applied"][0]["step"] == 1
+
+    fixed = agents.critique(filed, documents=_documented("resolved"))
+    assert fixed["issues"] == [] and any("fixed and verified" in s for s in fixed["strengths"])
+    assert agents.score(filed, fixed)[0] == agents.score(filed, agents.critique(filed))[0], "no penalty once verified"
+    assert agents.critique(filed, documents=_documented("supported", "low"))["issues"] == [], "a minor one is not held against it"
+
+    # the documents are their own record: a finding from them is not copied into memory, where it would outlive a fix
+    final = {"run_id": "run_d", "task": "retrosynthesis", "recommended_route_id": None,
+             "target": {"canonical_smiles": ASPIRIN, "matched_name": "aspirin"}, "report": "Report.",
+             "ranked_routes": [{**filed, "score": 0.5, "critique": unresolved}]}
+    assert [i["metadata"]["kind"] for i in memory.outcome_items(final, "q")] == ["investigation"]
 
 
 def test_a_simulated_lesson_is_labelled_whatever_the_prose_says():

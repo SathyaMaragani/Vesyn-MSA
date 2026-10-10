@@ -2,6 +2,7 @@
 title: Lab Notes - Gefitinib coupling development
 type: lab_note
 service: gefitinib
+reaction_template: 870cb2d9c7fa2b66fd4b1aac4c7921b32e389fa8bfbe2c4b222789c602f13bd0
 date: 2026-02-02
 owner: process-chemistry
 ---

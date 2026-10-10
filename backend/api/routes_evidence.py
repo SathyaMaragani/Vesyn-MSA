@@ -62,6 +62,12 @@ async def search(q: str, compound: str = "", type: str = "") -> dict:
     return await _call("evidence.search", {"query": q, "compound": compound, "type": type})
 
 
+@router.get("/api/evidence/lessons")
+async def lessons() -> dict:
+    """What the critic is told: per reaction step, the latest finding from the lab's documents."""
+    return await _call("evidence.lessons", {})
+
+
 @router.post("/api/evidence/ask")
 async def ask(body: AskRequest, request: Request) -> dict:
     _require_key(request)

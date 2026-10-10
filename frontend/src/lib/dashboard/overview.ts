@@ -124,7 +124,7 @@ function routeChecks(r: RankedRoute): Check[] {
 
   const s = r.assessment.summary;
   if (s === "REVIEW_REQUIRED") {
-    const at = r.critique.issues.find((i) => i.severity === "high" && i.source !== "memory" && i.step !== null);
+    const at = r.critique.issues.find((i) => i.severity === "high" && i.source !== "memory" && i.source !== "documents" && i.step !== null);
     checks.push({ tone: "bad", text: at ? `Validation flagged step ${at.step}` : "Validation flagged a step" });
   } else if (s === "INSUFFICIENT_EVIDENCE") checks.push({ tone: "warn", text: "Not enough evidence to confirm" });
   else checks.push({ tone: "ok", text: "No step flagged by validation" });
@@ -139,7 +139,7 @@ function routeChecks(r: RankedRoute): Check[] {
         : { tone: "ok", text: `Precedent for ${withPrecedent} of ${e.steps} steps` },
   );
 
-  const high = r.critique.issues.filter((i) => i.severity === "high" && i.source !== "memory").length;
+  const high = r.critique.issues.filter((i) => i.severity === "high" && i.source !== "memory" && i.source !== "documents").length;
   const medium = r.critique.counts.medium ?? 0;
   checks.push(
     high > 0
@@ -156,6 +156,10 @@ function routeChecks(r: RankedRoute): Check[] {
       text: `Reuses a transformation flagged in an earlier investigation`,
       simulated: lessons.every((i) => i.simulated === true),
     });
+  }
+  // a finding from the lab's own documents (the RAG engine) that is still unresolved for one of this route's steps
+  if (r.critique.issues.some((i) => i.source === "documents")) {
+    checks.push({ tone: "bad", text: "Lab documents report an unresolved problem with a step" });
   }
   return checks;
 }
@@ -235,7 +239,7 @@ export function whyRoute(result: RunResult | null, cards: RouteCard[]): WhyView 
     });
   }
 
-  const highs = rec.critique.issues.filter((i) => i.severity === "high" && i.source !== "memory").length;
+  const highs = rec.critique.issues.filter((i) => i.severity === "high" && i.source !== "memory" && i.source !== "documents").length;
   const profile = result.profile;
   const profiled = !!profile && Object.values(profile).every((v) => v && !("error" in (v as object)));
   const replans = result.attempts.length - 1;
@@ -294,7 +298,7 @@ export function timeline(run: RunView, result: RunResult | null = null): Timelin
           const plural = (n: number, s: string) => `${n} ${s}${n === 1 ? "" : "s"}`;
           const routes = `Critiqued ${plural(critiques, "route")}`;
           if (issues) {
-            const tools = issues.filter((i) => i.severity === "high" && i.source !== "memory").length;
+            const tools = issues.filter((i) => i.severity === "high" && i.source !== "memory" && i.source !== "documents").length;
             const lessons = issues.filter((i) => i.source === "memory").length;
             const found = tools ? plural(tools, "critical issue") : "no critical issues";
             add(ev, "Critic", `${routes}: ${found}${lessons ? `, ${plural(lessons, "step")} flagged by earlier investigations` : ""}`, tools || lessons ? "warn" : "ok");

@@ -226,6 +226,8 @@ def ingest_file(project_id: str, filename: str, data: bytes, meta: dict | None =
             "date": parse_date(info.get("date")),
             "owner": info.get("owner") or None,
             "repo": info.get("repo"),
+            # The reaction step this document is about, as Vesyn keys it (AiZynthFinder template hash).
+            "reaction_template": info.get("reaction_template") or None,
         }
         m = model()
         # Leave room for the "title | section" prefix and special tokens added at embedding time.
@@ -239,6 +241,7 @@ def ingest_file(project_id: str, filename: str, data: bytes, meta: dict | None =
                 "text": c["text"], "embedding": vector, "page": c["page"], "section": c["section"],
                 "service": c.get("service") or fields["service"], "date": fields["date"], "owner": fields["owner"],
                 "source_type": fields["type"], "title": fields["title"], "version": version, "latest": True,
+                "reaction_template": fields["reaction_template"],
             }
             for i, (c, vector) in enumerate(zip(chunks, vectors))
         ])

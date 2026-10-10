@@ -90,6 +90,23 @@ wherever one changes a ranking, and any LLM prose built on one gets a disclaimer
 in code, whatever the model wrote. Memory is advisory: an unreachable server is reported
 and the run goes on without it; `VESYN_HINDSIGHT_URL=none` turns it off.
 
+## Document evidence (the RAG engine)
+
+What the lab's own documents say is served by a separate service, [`backend/evidence_service`](../backend/evidence_service)
+(port 8437, MongoDB Atlas behind it): originals in GridFS, passages with embeddings and metadata, Atlas Vector
+Search and Atlas Search merged by rank, and findings whose quotes are checked against the stored text.
+[`backend/mas/evidence.py`](../backend/mas/evidence.py) reaches it; like memory it is advisory, and
+`VESYN_EVIDENCE_URL=none` turns it off.
+
+| When | Who | What |
+|---|---|---|
+| While critiquing | Critic | calls `evidence.lessons`: per reaction step, the latest finding that cites a document filed under that step's template hash (`reaction_template` in the document's front matter). An unresolved problem is a high-severity issue on every route that uses the step and costs it 0.15, the same as a recalled lesson; a problem that a later document verifies as fixed is listed as a strength instead |
+| On request | anyone | `evidence.search` and `evidence.ask` (`GET /api/evidence/search`, `POST /api/evidence/ask`), both through the gateway and so audited |
+| From the web app | RAG Engine tab | `/api/evidence/app/...` passes the page's calls through, so one address is public; uploads, reviews and questions need `X-Vesyn-Key` |
+
+A finding from the documents is never retained into memory: the documents are its record, and a later
+document can resolve it.
+
 Decision functions (`next_search`, `after_validation`, `judge`, `critique`,
 `score`) are pure and unit-tested in [`tests/test_mas.py`](../tests/test_mas.py).
 

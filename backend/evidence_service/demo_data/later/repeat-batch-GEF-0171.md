@@ -2,6 +2,7 @@
 title: Repeat Batch Report GEF-0171 - Gefitinib Step 2 at 120 g
 type: repeat_batch
 service: gefitinib
+reaction_template: 870cb2d9c7fa2b66fd4b1aac4c7921b32e389fa8bfbe2c4b222789c602f13bd0
 date: 2026-04-14
 owner: kilo-lab
 ---

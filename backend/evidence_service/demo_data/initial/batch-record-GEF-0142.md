@@ -2,6 +2,7 @@
 title: Batch Record GEF-0142 - Gefitinib Step 2 at 120 g
 type: batch_record
 service: gefitinib
+reaction_template: 870cb2d9c7fa2b66fd4b1aac4c7921b32e389fa8bfbe2c4b222789c602f13bd0
 date: 2026-03-03
 owner: kilo-lab
 ---

@@ -68,7 +68,7 @@ def list_projects():
 
 @app.post("/api/projects/{project_id}/sources")
 def upload_sources(project_id: str, files: list[UploadFile], type: str = Form(""), service: str = Form(""),
-                   date: str = Form(""), owner: str = Form("")):
+                   date: str = Form(""), owner: str = Form(""), reaction_template: str = Form("")):
     """Upload evidence. Form fields override front matter found in the files."""
     get_or_404("projects", project_id)
     results = []
@@ -76,7 +76,8 @@ def upload_sources(project_id: str, files: list[UploadFile], type: str = Form(""
         data = f.file.read(MAX_UPLOAD_BYTES + 1)
         if len(data) > MAX_UPLOAD_BYTES:
             raise HTTPException(413, f"{f.filename} is larger than 20 MB")
-        meta = {"type": type, "service": service, "date": date, "owner": owner}
+        meta = {"type": type, "service": service, "date": date, "owner": owner,
+                "reaction_template": reaction_template}
         results.append(out(ingest_file(project_id, f.filename or "upload", data, meta)))
     return results
 
@@ -123,6 +124,13 @@ def start_investigation(project_id: str, body: InvestigationIn | None = None):
     if model and model not in available_models():
         raise HTTPException(422, f"model {model} is not available")
     return out(run_investigation(project_id, model))
+
+
+@app.get("/api/projects/{project_id}/lessons")
+def lessons(project_id: str):
+    """What the latest review says about each reaction step the documents are filed under."""
+    get_or_404("projects", project_id)
+    return report.lessons(project_id)
 
 
 class AskIn(BaseModel):

@@ -138,7 +138,8 @@ def outcome_items(final: dict, request: str) -> list[dict]:
             })
         for issue in route["critique"]["issues"]:
             # memory-sourced issues are old lessons, not new evidence: re-retaining them would echo
-            if issue["severity"] != "high" or issue["step"] is None or issue["source"] == "memory":
+            # a document finding is not retained either: the documents are its record, and they can change
+            if issue["severity"] != "high" or issue["step"] is None or issue["source"] in ("memory", "documents"):
                 continue
             rxn = steps[issue["step"] - 1]
             key = rxn.get("template_hash")

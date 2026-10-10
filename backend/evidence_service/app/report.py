@@ -21,6 +21,63 @@ def enrich(findings: list[dict]) -> list[dict]:
     return findings
 
 
+# Most serious first: an unresolved problem outranks a verified fix for the same reaction step.
+LESSON_RANK = {"supported": 0, "conflicting": 1, "fix_unverified": 2, "resolved": 3}
+
+
+def lessons(project_id: str) -> dict:
+    """One lesson per reaction step, from the latest complete review.
+
+    A finding speaks for a step when it cites a document filed under that step's reaction template.
+    `open` means the problem is unresolved and not minor; a resolved finding is kept so the reader
+    can see that a known problem was fixed and verified.
+    """
+    d = db()
+    inv = d.investigations.find_one({"project_id": project_id, "status": "complete"}, sort=[("created_at", -1)])
+    if not inv:
+        return {"review_id": None, "reviewed_at": None, "lessons": []}
+    findings = [f for f in d.findings.find({"investigation_id": inv["_id"]}) if f["evidence_status"] in LESSON_RANK]
+    ids = {c["chunk_id"] for f in findings for side in SIDES for c in f[side]}
+    filed = {c["_id"]: c for c in d.chunks.find({"_id": {"$in": list(ids)}, "reaction_template": {"$ne": None}},
+                                                {"reaction_template": 1, "title": 1, "date": 1})}
+    return {"review_id": inv["_id"], "reviewed_at": inv["created_at"], "lessons": pick_lessons(findings, filed)}
+
+
+def pick_lessons(findings: list[dict], filed: dict[str, dict]) -> list[dict]:
+    """One lesson per reaction step. `filed` maps a passage id to {reaction_template, title, date}.
+
+    Several findings can cite a document filed under the same step. The one that speaks for the step
+    is the one most about it - the largest share of its citations are filed there - so a broad finding
+    that merely cites the same batch record does not override the step's own. Ties go to the more serious.
+    """
+    severity = {"high": 0, "medium": 1, "low": 2}
+    candidates = []
+    for f in findings:
+        if f["evidence_status"] not in LESSON_RANK:
+            continue
+        cites = [c for side in SIDES for c in f[side]]
+        steps = Counter(filed[c["chunk_id"]]["reaction_template"] for c in cites if c["chunk_id"] in filed)
+        candidates += [(-n / len(cites), LESSON_RANK[f["evidence_status"]], severity[f["severity"]], step, f)
+                       for step, n in steps.items()]
+    by_step: dict[str, dict] = {}
+    for *_, step, f in sorted(candidates, key=lambda c: c[:3]):
+        if step in by_step:
+            continue
+        resolved = f["evidence_status"] == "resolved"
+        # Quote the failure for an open problem, the verification for a resolved one.
+        ordered = [c for side in (SIDES[::-1] if resolved else SIDES) for c in f[side]]
+        cite = next(c for c in ordered if filed.get(c["chunk_id"], {}).get("reaction_template") == step)
+        chunk = filed[cite["chunk_id"]]
+        by_step[step] = {
+            "template_hash": step, "finding_id": f["_id"],
+            "claim": f["claim"], "compound": f["service"], "category": f["category"],
+            "severity": f["severity"], "evidence_status": f["evidence_status"],
+            "open": not resolved and f["severity"] != "low",
+            "quote": cite["quote"], "source_title": chunk["title"], "source_date": chunk["date"],
+        }
+    return list(by_step.values())
+
+
 def compare(old: list[dict], new: list[dict]) -> dict:
     """Classify findings of a new investigation against the previous one.
 
