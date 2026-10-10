@@ -5,6 +5,7 @@ export const NAV = [
   { href: "/lab/routes", label: "Synthesis" },
   { href: "/lab/chemistry", label: "Chemistry" },
   { href: "/lab/evidence", label: "Evidence" },
+  { href: "/dashboard/documents", label: "Documents" },
   { href: "/lab/intelligence", label: "Intelligence" },
   { href: "/lab", label: "Lab" },
   { href: "/lab/audit", label: "Audit" },

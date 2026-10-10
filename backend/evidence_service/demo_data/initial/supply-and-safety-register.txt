@@ -1,0 +1,28 @@
+---
+title: Supply and Safety Register - Gefitinib Route A
+type: supply_register
+service: gefitinib
+date: 2026-02-15
+owner: supply-chain
+---
+SUPPLY AND SAFETY REGISTER - GEFITINIB ROUTE A
+
+SYNTHETIC DEMO DATA. Invented for a demonstration. Not real laboratory results.
+
+Register updated 2026-02-15 by supply-chain.
+
+Material: 3-chloro-4-fluoroaniline
+Qualified suppliers: two
+Lead time: 3 weeks
+
+Material: quinazolinone core
+Qualified suppliers: ONE. No second source has been qualified.
+Lead time: 10 weeks
+
+Material: 3-morpholinopropyl chloride
+Qualified suppliers: two
+Lead time: 4 weeks
+
+Step 1 safety assessment: completed 2026-01-30, no concerns.
+Step 2 safety assessment: NOT ASSESSED. No calorimetry has been run on the coupling.
+Step 3 safety assessment: completed 2026-02-10, no concerns.

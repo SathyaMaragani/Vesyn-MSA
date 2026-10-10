@@ -90,6 +90,16 @@ if (-not (Test-Port 8435) -and (Test-Path $t5)) {
 }
 $status["ReactionT5 (:8435)"] = if (Test-Port 8435) { "up" } else { "off - steps not forward-checked" }
 
+# 3b. Evidence service (optional: without it, nothing searches the lab's documents) --
+#     MongoDB Atlas must allow this machine's IP address (Atlas > Network Access).
+Write-Host "      Evidence service (MongoDB Atlas)" -ForegroundColor Cyan
+$ev = Join-Path $root "venv-evidence\Scripts\python.exe"
+if (-not (Test-Port 8437) -and (Test-Path $ev)) {
+  Start-Hidden $ev "-m uvicorn --app-dir backend/evidence_service app.main:app --host 127.0.0.1 --port 8437" "evidence"
+  $null = Wait-Until { Test-Port 8437 } 90 "Evidence service"
+}
+$status["Evidence (:8437)"] = if (Test-Port 8437) { "up" } else { "off - no document evidence (see logs\evidence.err.log)" }
+
 # 4. API --------------------------------------------------------------------
 Write-Host "[4/5] API (loads AiZynthFinder and QSAR: ~30 s)" -ForegroundColor Cyan
 if (Test-Port 8436) {

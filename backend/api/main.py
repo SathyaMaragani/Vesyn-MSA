@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from backend.api import (
     routes_conditions,
+    routes_evidence,
     routes_mas,
     routes_qsar,
     routes_retrosynthesis,
@@ -91,6 +92,7 @@ app.include_router(routes_search.router)
 app.include_router(routes_qsar.router)
 app.include_router(routes_conditions.router)
 app.include_router(routes_mas.router)
+app.include_router(routes_evidence.router)
 
 
 @app.exception_handler(RequestValidationError)

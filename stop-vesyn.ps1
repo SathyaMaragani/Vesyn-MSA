@@ -9,7 +9,7 @@ $ts = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
 if (-not $ts -and (Test-Path "$env:ProgramFiles\Tailscale\tailscale.exe")) { $ts = "$env:ProgramFiles\Tailscale\tailscale.exe" }
 if ($ts) { & $ts funnel --https=443 off; Write-Host "public address: off" }
 
-foreach ($port in 8436, 8435) {
+foreach ($port in 8436, 8435, 8437) {
   $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
   foreach ($c in $conns) { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue }
   Write-Host ("port {0}: {1}" -f $port, $(if ($conns) { "stopped" } else { "was not running" }))
